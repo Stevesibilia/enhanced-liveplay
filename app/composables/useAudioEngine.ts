@@ -41,15 +41,20 @@ export const useAudioEngine = () => {
   const activeGroups = useState<Map<string, ActiveGroupState>>('activeGroups', () => new Map());
   const masterOutputLevel = useState<number>('masterOutputLevel', () => -60); // Master output level in dB
   const masterPeakLevel = useState<number>('masterPeakLevel', () => -60); // Master peak level in dB
-  const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to 0), 0 = unity
+  const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to +6), 0 = unity
 
   /**
-   * Set master gain and apply to Howler global volume.
+   * Set master gain and apply to Howler's Web Audio gain node directly,
+   * allowing values above 0 dB (up to +6 dB).
    */
   const setMasterGain = (db: number) => {
-    const clamped = Math.max(-60, Math.min(0, db));
+    const clamped = Math.max(-60, Math.min(6, db));
     masterGainDb.value = clamped;
-    Howler.volume(clamped <= -60 ? 0 : dbToLinear(clamped));
+    if (Howler.masterGain) {
+      Howler.masterGain.gain.value = clamped <= -60 ? 0 : dbToLinear(clamped);
+    } else {
+      Howler.volume(clamped <= -60 ? 0 : Math.min(1, dbToLinear(clamped)));
+    }
   };
 
   // Helper function to apply -10dB offset to volume
