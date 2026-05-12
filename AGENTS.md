@@ -14,6 +14,10 @@ The upstream (`origin`) is not kept up to date and should be treated as read-onl
 
 **Always check if a PR is already merged before adding commits to its branch.** If merged, create a new branch from `dev` for the additional changes.
 
+**Creating a branch, committing, and pushing require explicit user confirmation.** Do not perform these actions proactively — propose the action and wait for the user to approve before running it.
+
+**"Update the PR"** means: commit the current changes on the PR's branch and push to the fork. The push updates the existing PR automatically.
+
 For every change:
 
 1. **Branch from `dev`** on the fork — never work directly on `dev`

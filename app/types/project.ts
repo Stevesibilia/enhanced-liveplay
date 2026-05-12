@@ -98,6 +98,18 @@ export interface CartSlotKeyBinding {
   altKey: boolean;
 }
 
+export type GlobalActionId = 'pause-resume' | 'toggle-loop' | 'stop-all' | 'volume-up' | 'volume-down';
+
+export type GlobalKeyBindings = Record<GlobalActionId, CartSlotKeyBinding>;
+
+export const DEFAULT_GLOBAL_KEY_BINDINGS: GlobalKeyBindings = {
+  'pause-resume': { key: ' ',          ctrlKey: false, shiftKey: false, altKey: false },
+  'toggle-loop':  { key: 'ShiftRight', ctrlKey: false, shiftKey: false, altKey: false },
+  'stop-all':     { key: 'Escape',     ctrlKey: false, shiftKey: false, altKey: false },
+  'volume-up':    { key: 'w',          ctrlKey: false, shiftKey: false, altKey: false },
+  'volume-down':  { key: 's',          ctrlKey: false, shiftKey: false, altKey: false },
+};
+
 // Cart player item
 export interface CartItem {
   slot: number; // 0-15
@@ -113,6 +125,7 @@ export interface Project {
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
+  globalKeyBindings?: GlobalKeyBindings;
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
   theme: Theme;
   createdAt: string;

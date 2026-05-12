@@ -1,6 +1,6 @@
-import type { CartSlotKeyBinding } from '~/types/project';
+import type { CartSlotKeyBinding, GlobalActionId, GlobalKeyBindings } from '~/types/project';
 import type { AudioItem } from '~/types/project';
-import { DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+import { DEFAULT_CART_SLOT_KEYS, DEFAULT_GLOBAL_KEY_BINDINGS } from '~/types/project';
 
 // Reserved combos that cannot be assigned to cart slots
 const RESERVED_COMBOS: CartSlotKeyBinding[] = [
@@ -20,14 +20,10 @@ const RESERVED_COMBOS: CartSlotKeyBinding[] = [
   { key: ' ', ctrlKey: false, shiftKey: false, altKey: false },
   { key: 'Shift', ctrlKey: false, shiftKey: false, altKey: false },
   { key: 'Escape', ctrlKey: false, shiftKey: false, altKey: false },
-  { key: 'w', ctrlKey: false, shiftKey: false, altKey: false },
-  { key: 's', ctrlKey: false, shiftKey: false, altKey: false },
 ];
 
-/**
- * Check if two key bindings match.
- */
-const bindingsMatch = (a: CartSlotKeyBinding, b: CartSlotKeyBinding): boolean => {
+
+export const bindingsMatch = (a: CartSlotKeyBinding, b: CartSlotKeyBinding): boolean => {
   return a.key.toLowerCase() === b.key.toLowerCase()
     && a.ctrlKey === b.ctrlKey
     && a.shiftKey === b.shiftKey
@@ -42,15 +38,17 @@ export const isReservedCombo = (binding: CartSlotKeyBinding): boolean => {
 };
 
 /**
- * Format a key binding for display (e.g., "Ctrl+1", "Q", "0").
+ * Format a key binding for display (e.g., "Ctrl+1", "Q", "Space").
  */
 export const formatKeyLabel = (binding: CartSlotKeyBinding): string => {
   const parts: string[] = [];
   if (binding.ctrlKey) parts.push('Ctrl');
   if (binding.shiftKey) parts.push('Shift');
   if (binding.altKey) parts.push('Alt');
-  // Capitalize single-letter keys
-  const keyLabel = binding.key.length === 1 ? binding.key.toUpperCase() : binding.key;
+  let keyLabel: string;
+  if (binding.key === ' ') keyLabel = 'Space';
+  else if (binding.key === 'ShiftRight') keyLabel = 'Right Shift';
+  else keyLabel = binding.key.length === 1 ? binding.key.toUpperCase() : binding.key;
   parts.push(keyLabel);
   return parts.join('+');
 };
@@ -67,17 +65,50 @@ export const eventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => {
   };
 };
 
+/**
+ * Convert a KeyboardEvent to a binding, mapping Right Shift to 'ShiftRight'.
+ * Use this for capturing global action bindings.
+ */
+export const globalEventToBinding = (e: KeyboardEvent): CartSlotKeyBinding => {
+  if (e.key === 'Shift' && e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT) {
+    return { key: 'ShiftRight', ctrlKey: false, shiftKey: false, altKey: false };
+  }
+  return eventToBinding(e);
+};
+
+/** Global action metadata, ordered for display. */
+export const GLOBAL_ACTIONS: { id: GlobalActionId; label: string; category: string }[] = [
+  { id: 'pause-resume', label: 'Pause / Resume', category: 'Playback' },
+  { id: 'toggle-loop',  label: 'Toggle Loop',    category: 'Playback' },
+  { id: 'stop-all',     label: 'Stop All',        category: 'Playback' },
+  { id: 'volume-up',    label: 'Volume Up',        category: 'Volume' },
+  { id: 'volume-down',  label: 'Volume Down',      category: 'Volume' },
+];
+
 export const useCartHotkeys = () => {
   const { currentProject, selectedItem, saveProject } = useProject();
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, activeCues, stopAllCues, setMasterGain, masterGainDb } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, activeCues, stopAllCues, setMasterGain, masterGainDb, setLoopForCue } = useAudioEngine();
 
-  /**
-   * Get current key mappings, falling back to defaults.
-   */
   const keyMappings = computed(() => {
     return currentProject.value?.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS };
   });
+
+  const globalKeyMappings = computed(() => {
+    return currentProject.value?.globalKeyBindings ?? { ...DEFAULT_GLOBAL_KEY_BINDINGS };
+  });
+
+  const matchesGlobal = (e: KeyboardEvent, binding: CartSlotKeyBinding): boolean => {
+    if (binding.key === 'ShiftRight') {
+      return e.key === 'Shift'
+        && e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT
+        && !e.ctrlKey && !e.altKey;
+    }
+    return e.key.toLowerCase() === binding.key.toLowerCase()
+      && (e.ctrlKey || e.metaKey) === binding.ctrlKey
+      && e.shiftKey === binding.shiftKey
+      && e.altKey === binding.altKey;
+  };
 
   /**
    * Trigger a cart slot by index — mirrors click behavior.
@@ -173,11 +204,10 @@ export const useCartHotkeys = () => {
   const toggleLoop = () => {
     const item = getTargetItem();
     if (!item) return;
-    if (item.endBehavior.action === 'loop') {
-      item.endBehavior = { action: 'nothing' };
-    } else {
-      item.endBehavior = { action: 'loop' };
-    }
+    const newLoop = item.endBehavior.action !== 'loop';
+    item.endBehavior = newLoop ? { action: 'loop' } : { action: 'nothing' };
+    // Sync the live Howl so the change takes effect without restarting
+    setLoopForCue(item.uuid, newLoop);
     saveProject();
   };
 
@@ -188,44 +218,23 @@ export const useCartHotkeys = () => {
     if (isTextInputFocused()) return;
     if (!currentProject.value) return;
 
-    // Space = toggle play/stop of selected or playing item
-    if (e.key === ' ' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      togglePlayStop();
-      return;
-    }
+    const gm = globalKeyMappings.value;
 
-    // Escape = stop all cues
-    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      stopAllCues();
-      return;
+    if (matchesGlobal(e, gm['pause-resume'])) {
+      e.preventDefault(); e.stopPropagation(); togglePlayStop(); return;
     }
-
-    // W = master volume +1 dB
-    if (e.key === 'w' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      setMasterGain(masterGainDb.value + 1);
-      return;
+    if (matchesGlobal(e, gm['toggle-loop'])) {
+      e.preventDefault(); e.stopPropagation(); toggleLoop(); return;
     }
-
-    // S = master volume -1 dB
-    if (e.key === 's' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      setMasterGain(masterGainDb.value - 1);
-      return;
+    if (matchesGlobal(e, gm['stop-all'])) {
+      e.preventDefault(); e.stopPropagation(); stopAllCues(); return;
     }
-
-    // Right Shift = toggle loop on selected or playing item
-    if (e.key === 'Shift' && e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleLoop();
-      return;
+    // Volume actions: skip if the same key is also assigned to a cart slot
+    if (matchesGlobal(e, gm['volume-up']) && findSlotForEvent(e) < 0) {
+      e.preventDefault(); e.stopPropagation(); setMasterGain(masterGainDb.value + 1); return;
+    }
+    if (matchesGlobal(e, gm['volume-down']) && findSlotForEvent(e) < 0) {
+      e.preventDefault(); e.stopPropagation(); setMasterGain(masterGainDb.value - 1); return;
     }
 
     // Cart slot hotkeys
@@ -260,12 +269,18 @@ export const useCartHotkeys = () => {
     return { conflict: -1 };
   };
 
-  /**
-   * Reset all bindings to defaults.
-   */
   const resetToDefaults = () => {
     if (!currentProject.value) return;
     currentProject.value.cartSlotKeys = { ...DEFAULT_CART_SLOT_KEYS };
+    currentProject.value.globalKeyBindings = { ...DEFAULT_GLOBAL_KEY_BINDINGS };
+  };
+
+  const updateGlobalBinding = (actionId: GlobalActionId, binding: CartSlotKeyBinding) => {
+    if (!currentProject.value) return;
+    if (!currentProject.value.globalKeyBindings) {
+      currentProject.value.globalKeyBindings = { ...DEFAULT_GLOBAL_KEY_BINDINGS };
+    }
+    currentProject.value.globalKeyBindings[actionId] = binding;
   };
 
   // Lifecycle: register/unregister global listener
@@ -285,10 +300,12 @@ export const useCartHotkeys = () => {
 
   return {
     keyMappings,
+    globalKeyMappings,
     triggerSlot,
     mount,
     unmount,
     updateBinding,
+    updateGlobalBinding,
     resetToDefaults,
     findSlotForEvent,
   };
