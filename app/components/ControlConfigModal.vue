@@ -144,6 +144,7 @@ import {
   eventToBinding,
   globalEventToBinding,
   isReservedCombo,
+  bindingsMatch,
   GLOBAL_ACTIONS,
 } from '~/composables/useCartHotkeys';
 import { DEFAULT_CART_SLOT_KEYS, type GlobalActionId } from '~/types/project';
@@ -281,13 +282,18 @@ const handleKeydown = (e: KeyboardEvent) => {
     for (const action of GLOBAL_ACTIONS) {
       if (action.id === capturingId) continue;
       const existing = globalKeyMappings.value[action.id];
-      if (existing &&
-        existing.key.toLowerCase() === binding.key.toLowerCase() &&
-        existing.ctrlKey === binding.ctrlKey &&
-        existing.shiftKey === binding.shiftKey &&
-        existing.altKey === binding.altKey
-      ) {
+      if (existing && bindingsMatch(existing, binding)) {
         globalKeyErrorMessage.value = `Already assigned to "${action.label}"`;
+        globalErrorAction.value = capturingId;
+        return;
+      }
+    }
+
+    // Check conflict with cart slots
+    for (const [slotStr, slotBinding] of Object.entries(keyMappings.value)) {
+      if (bindingsMatch(slotBinding, binding)) {
+        const slotNum = parseInt(slotStr, 10) + 1;
+        globalKeyErrorMessage.value = `Already assigned to Cart Slot ${slotNum}`;
         globalErrorAction.value = capturingId;
         return;
       }
@@ -314,6 +320,16 @@ const handleKeydown = (e: KeyboardEvent) => {
     keyErrorMessage.value = t('cart.reserved');
     keyErrorSlot.value = capturingSlot.value;
     return;
+  }
+
+  // Check conflict with global actions
+  for (const action of GLOBAL_ACTIONS) {
+    const existing = globalKeyMappings.value[action.id];
+    if (existing && bindingsMatch(existing, binding)) {
+      keyErrorMessage.value = `Already assigned to "${action.label}"`;
+      keyErrorSlot.value = capturingSlot.value;
+      return;
+    }
   }
 
   const result = updateKeyBinding(capturingSlot.value, binding);
