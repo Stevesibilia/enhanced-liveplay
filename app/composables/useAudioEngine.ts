@@ -388,13 +388,16 @@ export const useAudioEngine = () => {
         },
         onend: () => {
           const cue = activeCues.value.get(item.uuid);
-          
+
           // Don't handle end behavior for looping items - Howler handles loop internally
           // Only clean up and handle end behavior for non-looping items
           if (item.endBehavior.action !== 'loop') {
             if (cue && cue.progressInterval) {
               clearInterval(cue.progressInterval);
             }
+            // With html5:true the browser restarts the audio before firing `ended`,
+            // so if loop was just disabled the howl may still be playing. Stop it.
+            if (howl.playing()) howl.stop();
             activeCues.value.delete(item.uuid);
             restoreDuckedVolumes(item.uuid);
             
