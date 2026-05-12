@@ -44,16 +44,25 @@ export const useAudioEngine = () => {
   const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to +6), 0 = unity
 
   /**
-   * Set master gain and apply to Howler's Web Audio gain node directly,
-   * allowing values above 0 dB (up to +6 dB).
+   * Set master gain. Negative dB uses Howler.volume() (0–1 range, reliable).
+   * Positive dB writes directly to Howler's Web Audio GainNode so we can
+   * exceed 1.0. cancelScheduledValues clears any pending automation set by
+   * prior Howler.volume() calls before we write the new value.
    */
   const setMasterGain = (db: number) => {
     const clamped = Math.max(-60, Math.min(6, db));
     masterGainDb.value = clamped;
-    if (Howler.masterGain) {
-      Howler.masterGain.gain.value = clamped <= -60 ? 0 : dbToLinear(clamped);
+    const linearVal = clamped <= -60 ? 0 : dbToLinear(clamped);
+
+    if (clamped > 0 && (Howler as any).masterGain && (Howler as any).ctx) {
+      // Positive gain: cancel pending automation then set gain > 1.0 directly
+      const gain: AudioParam = (Howler as any).masterGain.gain;
+      const ctx: AudioContext = (Howler as any).ctx;
+      gain.cancelScheduledValues(0);
+      gain.setValueAtTime(linearVal, ctx.currentTime);
     } else {
-      Howler.volume(clamped <= -60 ? 0 : Math.min(1, dbToLinear(clamped)));
+      // Normal range (≤ 0 dB): Howler.volume() handles 0–1, same as before
+      Howler.volume(linearVal);
     }
   };
 
