@@ -43,28 +43,29 @@ export const useAudioEngine = () => {
   const masterPeakLevel = useState<number>('masterPeakLevel', () => -60); // Master peak level in dB
   const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to +6), 0 = unity
 
-  /**
-   * Set master gain. Negative dB uses Howler.volume() (0–1 range, reliable).
-   * Positive dB writes directly to Howler's Web Audio GainNode so we can
-   * exceed 1.0. cancelScheduledValues clears any pending automation set by
-   * prior Howler.volume() calls before we write the new value.
-   */
   const setMasterGain = (db: number) => {
     const clamped = Math.max(-60, Math.min(6, db));
     masterGainDb.value = clamped;
     const linearVal = clamped <= -60 ? 0 : dbToLinear(clamped);
 
     if (clamped <= 0) {
-      // Normal range: Howler.volume() handles 0–1 and initialises the context
       Howler.volume(linearVal);
     } else {
-      // Positive gain: Howler.volume(1) initialises the context if needed and
-      // sets the baseline, then we cancel that automation and override > 1.0
-      Howler.volume(1);
-      const gain: AudioParam = (Howler as any).masterGain.gain;
-      const ctx: AudioContext = (Howler as any).ctx;
-      gain.cancelScheduledValues(0);
-      gain.setValueAtTime(linearVal, ctx.currentTime);
+      // Positive gain (> 0 dB): Howler.volume() clamps to [0,1] so we bypass
+      // it and write directly to the GainNode. Using .value = avoids the race
+      // where setValueAtTime events scheduled by prior Howler.volume() calls
+      // have already been processed by the audio thread and cannot be cancelled.
+      if (!(Howler as any).ctx) {
+        // Calling Howler.volume() initialises the AudioContext and masterGain.
+        Howler.volume(1);
+      }
+      const mg = (Howler as any).masterGain as GainNode | null;
+      if (mg) {
+        // Cancel any pending automation (e.g. from the Howler.volume(1) above),
+        // then set the intrinsic value directly — no scheduling, no races.
+        mg.gain.cancelScheduledValues(0);
+        mg.gain.value = linearVal;
+      }
     }
   };
 
