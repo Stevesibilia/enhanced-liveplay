@@ -276,17 +276,17 @@ export const useAudioEngine = () => {
               const inPoint = item.inPoint || 0;
               const currentTime = absoluteTime - inPoint;
               
-              // Check if playback has reached or exceeded the actual file duration
+              // Check if playback has reached or exceeded the actual file duration.
+              // Skip for looping items — Howler handles the loop; the interval
+              // firing near duration would otherwise incorrectly stop the track.
               const actualFileDuration = howl.duration();
-              if (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration)) {
-                // Media file has ended or we've reached the defined outPoint
+              if (item.endBehavior.action !== 'loop' &&
+                  (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration))) {
                 howl.stop();
                 clearInterval(cue.progressInterval);
-                
-                // Manually trigger end behavior since we're stopping early
                 activeCues.value.delete(item.uuid);
                 restoreDuckedVolumes(item.uuid);
-                
+
                 const parentGroup = findParentGroup(item.uuid);
                 if (parentGroup) {
                   const groupState = activeGroups.value.get(parentGroup.uuid);
@@ -297,10 +297,8 @@ export const useAudioEngine = () => {
                     }
                   }
                 }
-                
-                if (item.endBehavior.action !== 'loop') {
-                  handleEndBehavior(item);
-                }
+
+                handleEndBehavior(item);
                 return;
               }
               
@@ -819,17 +817,17 @@ export const useAudioEngine = () => {
               const inPoint = item.inPoint || 0;
               const currentTime = absoluteTime - inPoint;
               
-              // Check if playback has reached or exceeded the actual file duration
+              // Check if playback has reached or exceeded the actual file duration.
+              // Skip for looping items — Howler handles the loop; the interval
+              // firing near duration would otherwise incorrectly stop the track.
               const actualFileDuration = howl.duration();
-              if (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration)) {
-                // Media file has ended or we've reached the defined outPoint
+              if (item.endBehavior.action !== 'loop' &&
+                  (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration))) {
                 howl.stop();
                 clearInterval(cue.progressInterval);
-                
-                // Manually trigger end behavior since we're stopping early
                 activeCues.value.delete(item.uuid);
                 restoreDuckedVolumes(item.uuid);
-                
+
                 const parentGroup = findParentGroup(item.uuid);
                 if (parentGroup) {
                   const groupState = activeGroups.value.get(parentGroup.uuid);
@@ -840,10 +838,8 @@ export const useAudioEngine = () => {
                     }
                   }
                 }
-                
-                if (item.endBehavior.action !== 'loop') {
-                  handleEndBehavior(item);
-                }
+
+                handleEndBehavior(item);
                 return;
               }
               
