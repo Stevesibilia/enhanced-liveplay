@@ -54,15 +54,17 @@ export const useAudioEngine = () => {
     masterGainDb.value = clamped;
     const linearVal = clamped <= -60 ? 0 : dbToLinear(clamped);
 
-    if (clamped > 0 && (Howler as any).masterGain && (Howler as any).ctx) {
-      // Positive gain: cancel pending automation then set gain > 1.0 directly
+    if (clamped <= 0) {
+      // Normal range: Howler.volume() handles 0–1 and initialises the context
+      Howler.volume(linearVal);
+    } else {
+      // Positive gain: Howler.volume(1) initialises the context if needed and
+      // sets the baseline, then we cancel that automation and override > 1.0
+      Howler.volume(1);
       const gain: AudioParam = (Howler as any).masterGain.gain;
       const ctx: AudioContext = (Howler as any).ctx;
       gain.cancelScheduledValues(0);
       gain.setValueAtTime(linearVal, ctx.currentTime);
-    } else {
-      // Normal range (≤ 0 dB): Howler.volume() handles 0–1, same as before
-      Howler.volume(linearVal);
     }
   };
 

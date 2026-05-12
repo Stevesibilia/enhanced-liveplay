@@ -20,8 +20,6 @@ const RESERVED_COMBOS: CartSlotKeyBinding[] = [
   { key: ' ', ctrlKey: false, shiftKey: false, altKey: false },
   { key: 'Shift', ctrlKey: false, shiftKey: false, altKey: false },
   { key: 'Escape', ctrlKey: false, shiftKey: false, altKey: false },
-  { key: 'w', ctrlKey: false, shiftKey: false, altKey: false },
-  { key: 's', ctrlKey: false, shiftKey: false, altKey: false },
 ];
 
 /**
@@ -204,16 +202,16 @@ export const useCartHotkeys = () => {
       return;
     }
 
-    // W = master volume +1 dB
-    if (e.key === 'w' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    // W = master volume +1 dB (only when W is not assigned to a cart slot)
+    if (e.key === 'w' && !e.ctrlKey && !e.altKey && !e.shiftKey && findSlotForEvent(e) < 0) {
       e.preventDefault();
       e.stopPropagation();
       setMasterGain(masterGainDb.value + 1);
       return;
     }
 
-    // S = master volume -1 dB
-    if (e.key === 's' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    // S = master volume -1 dB (only when S is not assigned to a cart slot)
+    if (e.key === 's' && !e.ctrlKey && !e.altKey && !e.shiftKey && findSlotForEvent(e) < 0) {
       e.preventDefault();
       e.stopPropagation();
       setMasterGain(masterGainDb.value - 1);
