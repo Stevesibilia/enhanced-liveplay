@@ -51,12 +51,26 @@
           </span>
           <span v-if="keyErrorMessage && keyErrorSlot === slot - 1" class="error-msg">{{ keyErrorMessage }}</span>
         </div>
-        <!-- Global shortcut sections -->
-        <template v-for="group in GLOBAL_SHORTCUT_GROUPS" :key="group.category">
-          <div class="category-header">{{ group.category }}</div>
-          <div v-for="shortcut in group.shortcuts" :key="shortcut.label" class="action-row">
-            <span class="action-label">{{ shortcut.label }}</span>
-            <span class="action-binding">{{ shortcut.key }}</span>
+        <!-- Global shortcut sections (remappable) -->
+        <template v-for="category in globalCategories" :key="category">
+          <div class="category-header">{{ category }}</div>
+          <div
+            v-for="action in globalActionsByCategory(category)"
+            :key="action.id"
+            class="action-row key-slot-row"
+            :class="{ capturing: capturingGlobal === action.id, conflict: globalErrorAction === action.id && !!globalKeyErrorMessage }"
+            @click="startGlobalCapture(action.id)"
+          >
+            <span class="action-label">{{ action.label }}</span>
+            <span class="action-binding" :class="{ 'is-default': capturingGlobal !== action.id && isDefaultGlobalKey(action.id) }">
+              <template v-if="capturingGlobal === action.id">
+                {{ t('cart.pressAnyKey') }}
+              </template>
+              <template v-else>
+                {{ getGlobalKeyLabel(action.id) }}
+              </template>
+            </span>
+            <span v-if="globalKeyErrorMessage && globalErrorAction === action.id" class="error-msg">{{ globalKeyErrorMessage }}</span>
           </div>
         </template>
       </div>
@@ -125,8 +139,14 @@
 </template>
 
 <script setup lang="ts">
-import { formatKeyLabel, eventToBinding, isReservedCombo } from '~/composables/useCartHotkeys';
-import { DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+import {
+  formatKeyLabel,
+  eventToBinding,
+  globalEventToBinding,
+  isReservedCombo,
+  GLOBAL_ACTIONS,
+} from '~/composables/useCartHotkeys';
+import { DEFAULT_CART_SLOT_KEYS, type GlobalActionId } from '~/types/project';
 import {
   MIDI_ACTIONS,
   formatMidiBinding,
@@ -141,7 +161,7 @@ const emit = defineEmits<{
 const { t } = useLocalization();
 
 // Keyboard state
-const { keyMappings, updateBinding: updateKeyBinding, resetToDefaults } = useCartHotkeys();
+const { keyMappings, globalKeyMappings, updateBinding: updateKeyBinding, updateGlobalBinding, resetToDefaults } = useCartHotkeys();
 const { currentProject, saveProject } = useProject();
 const capturingSlot = ref<number | null>(null);
 const keyErrorMessage = ref<string | null>(null);
@@ -164,25 +184,37 @@ const midiConflictInfo = ref<{ actionId: MidiActionId; binding: MidiBinding; con
 
 const activeTab = ref<'keyboard' | 'midi'>('keyboard');
 
-// --- Global shortcuts (hardcoded, read-only) ---
+// --- Global shortcuts (remappable) ---
 
-const GLOBAL_SHORTCUT_GROUPS = [
-  {
-    category: 'Playback',
-    shortcuts: [
-      { label: 'Pause / Resume', key: 'Space' },
-      { label: 'Toggle Loop', key: 'Right Shift' },
-      { label: 'Stop All', key: 'Escape' },
-    ],
-  },
-  {
-    category: 'Volume',
-    shortcuts: [
-      { label: 'Volume Up', key: 'W' },
-      { label: 'Volume Down', key: 'S' },
-    ],
-  },
-];
+const capturingGlobal = ref<GlobalActionId | null>(null);
+const globalKeyErrorMessage = ref<string | null>(null);
+const globalErrorAction = ref<GlobalActionId | null>(null);
+
+const globalCategories = computed(() => {
+  const cats: string[] = [];
+  for (const action of GLOBAL_ACTIONS) {
+    if (!cats.includes(action.category)) cats.push(action.category);
+  }
+  return cats;
+});
+
+const globalActionsByCategory = (category: string) =>
+  GLOBAL_ACTIONS.filter(a => a.category === category);
+
+const isDefaultGlobalKey = (actionId: GlobalActionId): boolean =>
+  !currentProject.value?.globalKeyBindings?.[actionId];
+
+const getGlobalKeyLabel = (actionId: GlobalActionId): string => {
+  const binding = globalKeyMappings.value[actionId];
+  return binding ? formatKeyLabel(binding) : '—';
+};
+
+const startGlobalCapture = (actionId: GlobalActionId) => {
+  capturingGlobal.value = actionId;
+  globalKeyErrorMessage.value = null;
+  globalErrorAction.value = null;
+  capturingSlot.value = null;
+};
 
 // --- Keyboard helpers ---
 
@@ -202,6 +234,7 @@ const startCapture = (slotIndex: number) => {
   keyErrorMessage.value = null;
   keyErrorSlot.value = null;
   conflictSlot.value = null;
+  capturingGlobal.value = null;
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -214,6 +247,13 @@ const handleKeydown = (e: KeyboardEvent) => {
       e.preventDefault();
       return;
     }
+    if (activeTab.value === 'keyboard' && capturingGlobal.value !== null) {
+      capturingGlobal.value = null;
+      globalKeyErrorMessage.value = null;
+      globalErrorAction.value = null;
+      e.preventDefault();
+      return;
+    }
     if (activeTab.value === 'midi' && learning.value) {
       stopLearn();
       e.preventDefault();
@@ -223,9 +263,47 @@ const handleKeydown = (e: KeyboardEvent) => {
     return;
   }
 
-  // Only capture keys in keyboard tab
-  if (activeTab.value !== 'keyboard' || capturingSlot.value === null) return;
-  if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+  if (activeTab.value !== 'keyboard') return;
+  if (['Control', 'Alt', 'Meta'].includes(e.key)) return;
+
+  // Global action capture
+  if (capturingGlobal.value !== null) {
+    // Allow Shift alone (for Right Shift binding), but skip other modifier-only keys
+    if (e.key === 'Shift' && e.location !== KeyboardEvent.DOM_KEY_LOCATION_RIGHT) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const binding = globalEventToBinding(e);
+    const capturingId = capturingGlobal.value;
+
+    // Check conflict with other global actions
+    for (const action of GLOBAL_ACTIONS) {
+      if (action.id === capturingId) continue;
+      const existing = globalKeyMappings.value[action.id];
+      if (existing &&
+        existing.key.toLowerCase() === binding.key.toLowerCase() &&
+        existing.ctrlKey === binding.ctrlKey &&
+        existing.shiftKey === binding.shiftKey &&
+        existing.altKey === binding.altKey
+      ) {
+        globalKeyErrorMessage.value = `Already assigned to "${action.label}"`;
+        globalErrorAction.value = capturingId;
+        return;
+      }
+    }
+
+    updateGlobalBinding(capturingId, binding);
+    globalKeyErrorMessage.value = null;
+    globalErrorAction.value = null;
+    capturingGlobal.value = null;
+    saveProject();
+    return;
+  }
+
+  // Cart slot capture
+  if (capturingSlot.value === null) return;
+  if (e.key === 'Shift') return;
 
   e.preventDefault();
   e.stopPropagation();
