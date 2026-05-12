@@ -41,32 +41,15 @@ export const useAudioEngine = () => {
   const activeGroups = useState<Map<string, ActiveGroupState>>('activeGroups', () => new Map());
   const masterOutputLevel = useState<number>('masterOutputLevel', () => -60); // Master output level in dB
   const masterPeakLevel = useState<number>('masterPeakLevel', () => -60); // Master peak level in dB
-  const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to +6), 0 = unity
+  const masterGainDb = useState<number>('masterGainDb', () => 0); // Master gain in dB (-60 to 0), 0 = unity
 
+  /**
+   * Set master gain and apply to Howler global volume.
+   */
   const setMasterGain = (db: number) => {
-    const clamped = Math.max(-60, Math.min(6, db));
+    const clamped = Math.max(-60, Math.min(0, db));
     masterGainDb.value = clamped;
-    const linearVal = clamped <= -60 ? 0 : dbToLinear(clamped);
-
-    if (clamped <= 0) {
-      Howler.volume(linearVal);
-    } else {
-      // Positive gain (> 0 dB): Howler.volume() clamps to [0,1] so we bypass
-      // it and write directly to the GainNode. Using .value = avoids the race
-      // where setValueAtTime events scheduled by prior Howler.volume() calls
-      // have already been processed by the audio thread and cannot be cancelled.
-      if (!(Howler as any).ctx) {
-        // Calling Howler.volume() initialises the AudioContext and masterGain.
-        Howler.volume(1);
-      }
-      const mg = (Howler as any).masterGain as GainNode | null;
-      if (mg) {
-        // Cancel any pending automation (e.g. from the Howler.volume(1) above),
-        // then set the intrinsic value directly — no scheduling, no races.
-        mg.gain.cancelScheduledValues(0);
-        mg.gain.value = linearVal;
-      }
-    }
+    Howler.volume(clamped <= -60 ? 0 : dbToLinear(clamped));
   };
 
   // Helper function to apply -10dB offset to volume

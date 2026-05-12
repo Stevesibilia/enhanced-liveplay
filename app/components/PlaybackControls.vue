@@ -45,7 +45,7 @@
             orient="vertical"
             class="master-volume-slider-vertical"
             :min="-60"
-            :max="6"
+            :max="0"
             step="0.1"
             :value="masterGainDb"
             @input="handleMasterVolumeChange"
@@ -53,9 +53,9 @@
             :style="{ '--volume-handle-color': masterVolumeHandleColor }"
           />
           <div class="master-volume-markers">
-            <span>+6</span>
             <span>0</span>
             <span>-12</span>
+            <span>-24</span>
             <span>-∞</span>
           </div>
         </div>
