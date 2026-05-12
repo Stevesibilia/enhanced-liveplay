@@ -88,7 +88,7 @@ export const GLOBAL_ACTIONS: { id: GlobalActionId; label: string; category: stri
 export const useCartHotkeys = () => {
   const { currentProject, selectedItem, saveProject } = useProject();
   const { getCartItem } = useCartItems();
-  const { playCue, stopCue, pauseCue, resumeCue, activeCues, stopAllCues, setMasterGain, masterGainDb } = useAudioEngine();
+  const { playCue, stopCue, pauseCue, resumeCue, activeCues, stopAllCues, setMasterGain, masterGainDb, setLoopForCue } = useAudioEngine();
 
   const keyMappings = computed(() => {
     return currentProject.value?.cartSlotKeys ?? { ...DEFAULT_CART_SLOT_KEYS };
@@ -204,11 +204,10 @@ export const useCartHotkeys = () => {
   const toggleLoop = () => {
     const item = getTargetItem();
     if (!item) return;
-    if (item.endBehavior.action === 'loop') {
-      item.endBehavior = { action: 'nothing' };
-    } else {
-      item.endBehavior = { action: 'loop' };
-    }
+    const newLoop = item.endBehavior.action !== 'loop';
+    item.endBehavior = newLoop ? { action: 'loop' } : { action: 'nothing' };
+    // Sync the live Howl so the change takes effect without restarting
+    setLoopForCue(item.uuid, newLoop);
     saveProject();
   };
 

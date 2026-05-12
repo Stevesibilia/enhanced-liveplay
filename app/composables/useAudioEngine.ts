@@ -1330,6 +1330,11 @@ export const useAudioEngine = () => {
     }
   };
 
+  const setLoopForCue = (uuid: string, loop: boolean) => {
+    const cue = activeCues.value.get(uuid);
+    if (cue) cue.howl.loop(loop);
+  };
+
   return {
     activeCues,
     activeGroups,
@@ -1345,6 +1350,7 @@ export const useAudioEngine = () => {
     resumeCue,
     seekCue,
     setVolume,
+    setLoopForCue,
     triggerByUuid,
     triggerByIndex,
     triggerGroup
