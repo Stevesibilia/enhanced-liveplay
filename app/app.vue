@@ -55,44 +55,17 @@
 
 <script setup lang="ts">
 import 'material-symbols';
-import type { Project } from '~/types/project';
 
-const { currentProject, saveProject, openProject } = useProject();
-const { currentLocale, setLocale, getDirection, t } = useLocalization();
-const theme = useState('theme', () => 'dark');
+const { currentProject, saveProject } = useProject();
+const { currentLocale, getDirection } = useLocalization();
 
 // Initialize state viewer for dev mode
 useStateViewer();
 
-// Progress modal state
-const progressModal = ref({
-  visible: false,
-  title: '',
-  message: '',
-  percentage: 0
-});
-
-// Project selection modal state
-const showProjectSelection = ref(false);
-const availableProjects = ref<string[]>([]);
-const pendingImportPath = ref<string>('');
-
-// Color picker for accent color
-const showColorPicker = ref(false);
-
-// About modal
-const showAboutModal = ref(false);
-
-// Update modal
-const showUpdateModal = ref(false);
-const updateInfo = ref({
-  currentVersion: '',
-  newVersion: '',
-  releaseNotes: '',
-  releaseDate: '',
-  isManualUpdate: false,
-  downloadUrl: ''
-});
+// Composables
+const { theme, showColorPicker, showAboutModal, registerListeners: registerMenuListeners } = useMenuListeners();
+const { progressModal, showProjectSelection, availableProjects, handleProjectSelection, handleProjectSelectionCancel, registerListeners: registerImportExportListeners } = useImportExport();
+const { showUpdateModal, updateInfo, registerListeners: registerUpdateListeners } = useUpdateChecker();
 
 const accentColors = [
   '#0f62fe', '#0353e9', '#002d9c', // Blues
@@ -103,138 +76,6 @@ const accentColors = [
   '#ff7eb6', '#ee5396', '#d02670', // Pinks
 ];
 
-// Listen to menu events
-onMounted(() => {
-  if (import.meta.client && window.electronAPI) {
-    window.electronAPI.onMenuToggleDarkMode(() => {
-      theme.value = theme.value === 'dark' ? 'light' : 'dark';
-      if (currentProject.value) {
-        currentProject.value.theme.mode = theme.value as 'dark' | 'light';
-        saveProject();
-      }
-    });
-
-    window.electronAPI.onMenuChangeAccentColor(() => {
-      showColorPicker.value = true;
-    });
-
-    window.electronAPI.onMenuChangeLanguage((_event, locale) => {
-      setLocale(locale);
-    });
-    
-    window.electronAPI.onMenuShowAbout(() => {
-      showAboutModal.value = true;
-    });
-    
-    // Handle import project (works even on welcome screen)
-    window.electronAPI.onMenuImportProject(async () => {
-      try {
-        // Set up progress listener
-        const progressListener: Parameters<typeof window.electronAPI.onImportProgress>[0] = (_event, data) => {
-          progressModal.value = {
-            visible: true,
-            title: t('importProgress.title'),
-            message: `${t('importProgress.message')} ${data.fileName}...`,
-            percentage: data.percentage
-          };
-        };
-        
-        window.electronAPI.onImportProgress(progressListener);
-        
-        const result = await window.electronAPI.importProject();
-        
-        // Clean up listener
-        window.electronAPI.removeImportProgressListener(progressListener);
-        
-        // Hide modal
-        progressModal.value.visible = false;
-        
-        if (result.success) {
-          // Handle multiple projects
-          if (result.multipleProjects && result.projectFiles) {
-            availableProjects.value = result.projectFiles;
-            pendingImportPath.value = result.extractPath;
-            showProjectSelection.value = true;
-          } else if (result.projectPath) {
-            // Single project - open directly
-            await openProject(result.projectPath);
-          }
-        }
-      } catch (error) {
-        console.error('Import failed:', error);
-        progressModal.value.visible = false;
-      }
-    });
-
-    // Listen for update events
-    window.electronAPI.onUpdateAvailable((_event, info) => {
-      updateInfo.value = { ...updateInfo.value, ...info };
-      showUpdateModal.value = true;
-    });
-    
-    // Listen for manual update events (fallback)
-    window.electronAPI.onManualUpdateAvailable((_event, info) => {
-      updateInfo.value = { ...updateInfo.value, ...info };
-      showUpdateModal.value = true;
-    });
-    
-    // Listen for project file opening (from file association)
-    window.electronAPI.onOpenProjectFile((_event, data) => {
-      try {
-        currentProject.value = data.projectData as Project;
-        console.log('Opened project from file association:', data.filePath);
-      } catch (error) {
-        console.error('Failed to open project file:', error);
-      }
-    });
-    
-    // Listen for .lpa file opening (from double-click file association)
-    window.electronAPI.onOpenLpaFile(async (_event, data) => {
-      try {
-        console.log('Opening .lpa file:', data.lpaPath);
-        
-        // Set up progress listener
-        const progressListener: Parameters<typeof window.electronAPI.onImportProgress>[0] = (_event, progressData) => {
-          progressModal.value = {
-            visible: true,
-            title: t('importProgress.title'),
-            message: `${t('importProgress.message')} ${progressData.fileName}...`,
-            percentage: progressData.percentage
-          };
-        };
-        
-        window.electronAPI.onImportProgress(progressListener);
-        
-        const result = await window.electronAPI.importLpaFile(data.lpaPath);
-        
-        // Clean up listener
-        window.electronAPI.removeImportProgressListener(progressListener);
-        
-        // Hide modal
-        progressModal.value.visible = false;
-        
-        if (result.success) {
-          // Handle multiple projects
-          if (result.multipleProjects && result.projectFiles) {
-            availableProjects.value = result.projectFiles;
-            pendingImportPath.value = result.extractPath;
-            showProjectSelection.value = true;
-          } else if (result.projectPath) {
-            // Single project - open directly
-            await openProject(result.projectPath);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to open .lpa file:', error);
-        progressModal.value.visible = false;
-      }
-    });
-
-    // Sync menu with current UI language on startup
-    window.electronAPI.updateMenuLanguage(currentLocale.value);
-  }
-});
-
 const changeAccentColor = (color: string) => {
   if (currentProject.value) {
     currentProject.value.theme.accentColor = color;
@@ -244,27 +85,17 @@ const changeAccentColor = (color: string) => {
   }
 };
 
-// Handle project selection from multiple projects
-const handleProjectSelection = async (projectName: string) => {
-  showProjectSelection.value = false;
-  const projectPath = `${pendingImportPath.value}/${projectName}`;
-  await openProject(projectPath);
-  pendingImportPath.value = '';
-  availableProjects.value = [];
-};
-
-const handleProjectSelectionCancel = () => {
-  showProjectSelection.value = false;
-  pendingImportPath.value = '';
-  availableProjects.value = [];
-};
+// Register IPC listeners
+onMounted(() => {
+  registerMenuListeners();
+  registerImportExportListeners();
+  registerUpdateListeners();
+});
 
 // Set initial theme from project
 watch(currentProject, (project) => {
   if (project) {
     theme.value = project.theme.mode;
-    
-    // Set accent color
     if (import.meta.client && project.theme.accentColor) {
       document.documentElement.style.setProperty('--color-accent-custom', project.theme.accentColor);
     }
@@ -280,9 +111,6 @@ watch(currentLocale, () => {
 }, { immediate: true });
 
 // Enable drag-and-drop globally.
-// Chromium requires preventDefault() on EVERY dragover event (including on
-// intermediate elements) for the drop event to fire. Using capture phase
-// ensures this runs before any component handlers.
 onMounted(() => {
   if (import.meta.client) {
     document.addEventListener('dragenter', (e) => {
