@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import 'material-symbols';
+import type { Project } from '~/types/project';
 
 const { currentProject, saveProject, openProject } = useProject();
 const { currentLocale, setLocale, getDirection, t } = useLocalization();
@@ -117,7 +118,7 @@ onMounted(() => {
       showColorPicker.value = true;
     });
 
-    window.electronAPI.onMenuChangeLanguage((event: any, locale: string) => {
+    window.electronAPI.onMenuChangeLanguage((_event, locale) => {
       setLocale(locale);
     });
     
@@ -129,7 +130,7 @@ onMounted(() => {
     window.electronAPI.onMenuImportProject(async () => {
       try {
         // Set up progress listener
-        const progressListener = (_event: any, data: { percentage: number; fileName: string }) => {
+        const progressListener: Parameters<typeof window.electronAPI.onImportProgress>[0] = (_event, data) => {
           progressModal.value = {
             visible: true,
             title: t('importProgress.title'),
@@ -166,21 +167,21 @@ onMounted(() => {
     });
 
     // Listen for update events
-    window.electronAPI.onUpdateAvailable((event: any, info: any) => {
-      updateInfo.value = info;
+    window.electronAPI.onUpdateAvailable((_event, info) => {
+      updateInfo.value = { ...updateInfo.value, ...info };
       showUpdateModal.value = true;
     });
     
     // Listen for manual update events (fallback)
-    window.electronAPI.onManualUpdateAvailable((event: any, info: any) => {
-      updateInfo.value = info;
+    window.electronAPI.onManualUpdateAvailable((_event, info) => {
+      updateInfo.value = { ...updateInfo.value, ...info };
       showUpdateModal.value = true;
     });
     
     // Listen for project file opening (from file association)
-    window.electronAPI.onOpenProjectFile((event: any, data: { filePath: string, projectData: any }) => {
+    window.electronAPI.onOpenProjectFile((_event, data) => {
       try {
-        currentProject.value = data.projectData;
+        currentProject.value = data.projectData as Project;
         console.log('Opened project from file association:', data.filePath);
       } catch (error) {
         console.error('Failed to open project file:', error);
@@ -188,12 +189,12 @@ onMounted(() => {
     });
     
     // Listen for .lpa file opening (from double-click file association)
-    window.electronAPI.onOpenLpaFile(async (event: any, data: { lpaPath: string }) => {
+    window.electronAPI.onOpenLpaFile(async (_event, data) => {
       try {
         console.log('Opening .lpa file:', data.lpaPath);
         
         // Set up progress listener
-        const progressListener = (_event: any, progressData: { percentage: number; fileName: string }) => {
+        const progressListener: Parameters<typeof window.electronAPI.onImportProgress>[0] = (_event, progressData) => {
           progressModal.value = {
             visible: true,
             title: t('importProgress.title'),
