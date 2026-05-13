@@ -31,150 +31,12 @@
 </template>
 
 <script setup lang="ts">
-const { selectedItem, saveProject, closeProject, currentProject } = useProject();
-const { triggerByUuid, triggerByIndex, stopCue } = useAudioEngine();
-const { t } = useLocalization();
+const { selectedItem } = useProject();
+const { cartWidth, cartClosed, cartFullscreen, startResize } = useResizablePanel();
+const { progressModal, registerListeners, handleKeydown } = useWorkspaceListeners();
 
-// Progress modal state
-const progressModal = ref({
-  visible: false,
-  title: '',
-  message: '',
-  percentage: 0
-});
-
-// Resizable cart width
-const cartWidth = ref(500);
-const isResizing = ref(false);
-const cartClosed = ref(false);
-const cartFullscreen = ref(false);
-
-const startResize = (e: MouseEvent) => {
-  isResizing.value = true;
-  e.preventDefault();
-  
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing.value) return;
-    
-    const container = document.querySelector('.workspace-content');
-    if (!container) return;
-    
-    const rect = container.getBoundingClientRect();
-    const newWidth = rect.right - e.clientX;
-    
-    // Snap zones
-    const snapThreshold = 100; // pixels from edge to trigger snap
-    const minWidth = 300;
-    const maxWidth = rect.width * 0.95; // Allow up to 95% to trigger fullscreen
-    
-    // Check for close snap (dragging very close to right edge)
-    if (newWidth < snapThreshold) {
-      cartClosed.value = true;
-      cartFullscreen.value = false;
-      return;
-    }
-    
-    // Check for fullscreen snap (dragging very close to left edge)
-    if (newWidth > rect.width - snapThreshold) {
-      cartFullscreen.value = true;
-      cartClosed.value = false;
-      return;
-    }
-    
-    // Normal resize
-    cartClosed.value = false;
-    cartFullscreen.value = false;
-    cartWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
-  };
-  
-  const handleMouseUp = () => {
-    isResizing.value = false;
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
-  
-  document.addEventListener('mousemove', handleMouseMove);
-  document.addEventListener('mouseup', handleMouseUp);
-};
-
-// Listen for menu events
-if (import.meta.client && window.electronAPI) {
-  window.electronAPI.onMenuSaveProject(() => {
-    saveProject();
-  });
-
-  window.electronAPI.onMenuExportProject(async () => {
-    if (!currentProject.value) return;
-    
-    try {
-      // Set up progress listener
-      const progressListener: Parameters<typeof window.electronAPI.onExportProgress>[0] = (_event, data) => {
-        progressModal.value = {
-          visible: true,
-          title: t('exportProgress.title'),
-          message: `${t('exportProgress.message')} ${data.fileName}...`,
-          percentage: data.percentage
-        };
-      };
-      
-      window.electronAPI.onExportProgress(progressListener);
-      
-      const result = await window.electronAPI.exportProject(currentProject.value.folderPath, currentProject.value.name);
-      
-      // Clean up listener
-      window.electronAPI.removeExportProgressListener(progressListener);
-      
-      // Add small delay to ensure final progress (100%) is shown
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Hide modal
-      progressModal.value.visible = false;
-      
-      if (result.success) {
-        console.log('Project exported successfully:', result.path);
-      }
-    } catch (error) {
-      console.error('Export failed:', error);
-      progressModal.value.visible = false;
-    }
-  });
-
-  window.electronAPI.onMenuCloseProject(() => {
-    closeProject();
-  });
-
-  window.electronAPI.onMenuOpenProjectFolder(() => {
-    if (currentProject.value) {
-      window.electronAPI.openFolder(currentProject.value.folderPath);
-    }
-  });
-
-  // Listen for API triggers
-  window.electronAPI.onTriggerItem((_event, data) => {
-    if (data.type === 'uuid') {
-      triggerByUuid(data.value);
-    } else if (data.type === 'index') {
-      triggerByIndex(data.value);
-    }
-  });
-
-  window.electronAPI.onStopItem((_event, data) => {
-    if (data.type === 'uuid') {
-      stopCue(data.value);
-    }
-  });
-}
-
-// Save on F1 key (alternative to big play button)
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'F1') {
-    e.preventDefault();
-    if (selectedItem.value && selectedItem.value.type === 'audio') {
-      const { playCue } = useAudioEngine();
-      playCue(selectedItem.value as any);
-    }
-  }
-};
+// Register IPC listeners and keyboard shortcut
+registerListeners();
 
 onMounted(() => {
   if (import.meta.client) {
@@ -227,7 +89,6 @@ onUnmounted(() => {
   }
   
   &.collapsed-left {
-    /* When cart is fullscreen, show handle at left edge */
     position: absolute;
     left: 0;
     top: 0;
@@ -254,7 +115,6 @@ onUnmounted(() => {
   }
   
   &.collapsed-right {
-    /* When cart is closed, show handle at right edge */
     position: absolute;
     right: 0;
     top: 0;
