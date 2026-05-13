@@ -4,9 +4,11 @@ Snapshot review at v1.4.9 (branch `dev`). Use this as the starting point when pl
 
 ## Top pain points
 
-### 1. `useAudioEngine.ts` is a 1357-line god module with copy-pasted playback paths
+### 1. ~~`useAudioEngine.ts` is a 1357-line god module with copy-pasted playback paths~~ — **Resolved (PR #19, commit `f5388bf`)**
 
-`playCue` (line 219) and `startCrossfadeTrack` (line 764) are essentially the same ~250-line function pasted twice — same Howl config, same sprite math, same progress-interval, same end-detection block. That's why every loop fix in PR #17 required `replace_all: true`. Any change to playback (volume offset, sprite handling, end behavior) has to be applied to both, and we just lived through what happens when one drifts. **Highest-leverage refactor in the codebase.**
+The ~250-line Howl-creation block is now factored into `setupCueForPlayback` (`app/composables/useAudioEngine.ts:226`). Both `playCue` (:423) and `startCrossfadeTrack` (:719) are thin wrappers that delegate to it, differing only in initial volume and fade behavior. File is down to 1109 lines and the duplicate-bug class is closed.
+
+Minor residual: `applyVolumeOffset(item.volume)` is recomputed at the call site in `playCue` and the `initialVolume` parameter is ignored when building `ActiveCueState` inside `setupCueForPlayback` (:388). Not a bug, just minor redundancy.
 
 ### 2. Audio-thread races baked into the design
 
@@ -69,7 +71,7 @@ Every mutation calls `saveProject()` synchronously: `JSON.stringify` the entire 
 
 ## Quick wins (low effort, high payoff)
 
-1. Extract Howl creation in `playCue` and `startCrossfadeTrack` into one `createHowlForItem(item, opts)` function (~2 hours, eliminates the duplicate-bug class entirely).
+1. ~~Extract Howl creation in `playCue` and `startCrossfadeTrack` into one `createHowlForItem(item, opts)` function~~ — done in PR #19 as `setupCueForPlayback`.
 2. Wrap the three filesystem IPC handlers in a `pathIsInProjectFolder` check (~30 min, closes the renderer-escape attack surface).
 3. Add a `schemaVersion` field and a `validateProject(json)` in `openProject` (~1 hour, prevents the next "old project file crashes" bug).
 4. Add a single `vitest` config and write tests for `app/utils/audio.ts` and the pure helpers in `useCartHotkeys` (~2 hours, establishes the testing pattern).
@@ -85,4 +87,4 @@ Every mutation calls `saveProject()` synchronously: `JSON.stringify` the entire 
 
 ## Recommended starting point
 
-**Quick win #1** (deduplicate Howl creation): mostly mechanical, removes a recurring source of bugs, and produces the seam needed to start replacing polling with events (bigger project #1).
+With deduplication done (PR #19), the natural next step is **bigger project #1** — replace polling-based decisions inside `setupCueForPlayback`'s progress interval with Howler events. The seam now exists in one place, so end-detection, crossfade trigger, and stop-fade trigger can be migrated to `onend` / event-driven scheduling without the previous "fix it in two places" tax.
