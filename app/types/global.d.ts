@@ -1,3 +1,5 @@
+import type { IpcEvent, TriggerItemPayload, StopItemPayload, UpdateInfo, MidiConfig } from './ipc';
+
 export {};
 
 declare global {
@@ -33,10 +35,10 @@ declare global {
         canceled?: boolean; 
         error?: string 
       }>;
-      onExportProgress: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
-      onImportProgress: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
-      removeExportProgressListener: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
-      removeImportProgressListener: (callback: (event: any, data: { percentage: number; fileName: string }) => void) => void;
+      onExportProgress: (callback: (event: IpcEvent, data: { percentage: number; fileName: string }) => void) => void;
+      onImportProgress: (callback: (event: IpcEvent, data: { percentage: number; fileName: string }) => void) => void;
+      removeExportProgressListener: (callback: (event: IpcEvent, data: { percentage: number; fileName: string }) => void) => void;
+      removeImportProgressListener: (callback: (event: IpcEvent, data: { percentage: number; fileName: string }) => void) => void;
       getFilePath: (file: File) => string | null;
       checkFfmpeg: () => Promise<{ available: boolean; path: string | null }>;
       searchYouTube: (query: string) => Promise<Array<{
@@ -61,28 +63,28 @@ declare global {
       onMenuOpenProjectFolder: (callback: () => void) => void;
       onMenuToggleDarkMode: (callback: () => void) => void;
       onMenuChangeAccentColor: (callback: () => void) => void;
-      onMenuChangeLanguage: (callback: (event: any, locale: string) => void) => void;
+      onMenuChangeLanguage: (callback: (event: IpcEvent, locale: string) => void) => void;
       onMenuShowAbout: (callback: () => void) => void;
       openExternal: (url: string) => Promise<void>;
       updateMenuLanguage: (locale: string) => Promise<{ success: boolean }>;
       getSystemLocale: () => Promise<string>;
       getAvailableLocales: () => Promise<Array<{ code: string; name: string; direction: string }>>;
-      getLocaleData: (localeCode: string) => Promise<any>;
-      checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string; isManualUpdate?: boolean }>;
+      getLocaleData: (localeCode: string) => Promise<Record<string, string>>;
+      checkForUpdates: () => Promise<{ success: boolean; updateInfo?: UpdateInfo; error?: string; isManualUpdate?: boolean }>;
       downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
       installUpdate: () => void;
       getAppVersion: () => Promise<string>;
-      onUpdateAvailable: (callback: (event: any, info: { currentVersion: string; newVersion: string; releaseNotes?: string; releaseDate?: string }) => void) => void;
-      onUpdateDownloadProgress: (callback: (event: any, progress: { percent: number; transferred: number; total: number }) => void) => void;
-      onUpdateDownloaded: (callback: (event: any, info: { version: string }) => void) => void;
-      onUpdateError: (callback: (event: any, error: string) => void) => void;
-      onManualUpdateAvailable: (callback: (event: any, info: { currentVersion: string; newVersion: string; downloadUrl: string; isManualUpdate: boolean }) => void) => void;
-      onTriggerItem: (callback: (event: any, data: any) => void) => void;
-      onStopItem: (callback: (event: any, data: any) => void) => void;
-      onOpenProjectFile: (callback: (event: any, data: { filePath: string; projectData: any }) => void) => void;
-      onOpenLpaFile: (callback: (event: any, data: { lpaPath: string }) => void) => void;
-      readMidiConfig: () => Promise<Record<string, any>>;
-      writeMidiConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
+      onUpdateAvailable: (callback: (event: IpcEvent, info: { currentVersion: string; newVersion: string; releaseNotes?: string; releaseDate?: string }) => void) => void;
+      onUpdateDownloadProgress: (callback: (event: IpcEvent, progress: { percent: number; transferred: number; total: number }) => void) => void;
+      onUpdateDownloaded: (callback: (event: IpcEvent, info: { version: string }) => void) => void;
+      onUpdateError: (callback: (event: IpcEvent, error: string) => void) => void;
+      onManualUpdateAvailable: (callback: (event: IpcEvent, info: { currentVersion: string; newVersion: string; downloadUrl: string; isManualUpdate: boolean }) => void) => void;
+      onTriggerItem: (callback: (event: IpcEvent, data: TriggerItemPayload) => void) => void;
+      onStopItem: (callback: (event: IpcEvent, data: StopItemPayload) => void) => void;
+      onOpenProjectFile: (callback: (event: IpcEvent, data: { filePath: string; projectData: unknown }) => void) => void;
+      onOpenLpaFile: (callback: (event: IpcEvent, data: { lpaPath: string }) => void) => void;
+      readMidiConfig: () => Promise<MidiConfig>;
+      writeMidiConfig: (config: MidiConfig) => Promise<{ success: boolean }>;
       writeClipboardText: (text: string) => Promise<{ success: boolean }>;
     };
   }

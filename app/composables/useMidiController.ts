@@ -1,24 +1,6 @@
 import type { AudioItem } from '~/types/project';
-
-// MIDI binding: identifies a specific control on a MIDI device
-export interface MidiBinding {
-  channel: number;   // 0-15
-  type: 'note' | 'cc' | 'pitchbend';
-  number: number;    // note number, CC number (0-127), or 0 for pitchbend
-}
-
-// Available action IDs
-export type MidiActionId =
-  | 'trigger-slot-0' | 'trigger-slot-1' | 'trigger-slot-2' | 'trigger-slot-3'
-  | 'trigger-slot-4' | 'trigger-slot-5' | 'trigger-slot-6' | 'trigger-slot-7'
-  | 'trigger-slot-8' | 'trigger-slot-9' | 'trigger-slot-10' | 'trigger-slot-11'
-  | 'trigger-slot-12' | 'trigger-slot-13' | 'trigger-slot-14' | 'trigger-slot-15'
-  | 'pause-resume' | 'toggle-loop' | 'stop-all' | 'master-volume';
-
-// Config stored in midi-config.json
-export interface MidiConfig {
-  bindings: Record<string, MidiBinding>; // actionId → binding
-}
+import type { MidiBinding, MidiActionId, MidiConfig } from '~/types/ipc';
+export type { MidiBinding, MidiActionId, MidiConfig };
 
 // All available actions with display metadata
 export const MIDI_ACTIONS: { id: MidiActionId; label: string; category: string; continuous: boolean }[] = [

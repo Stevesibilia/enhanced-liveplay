@@ -108,7 +108,7 @@ if (import.meta.client && window.electronAPI) {
     
     try {
       // Set up progress listener
-      const progressListener = (_event: any, data: { percentage: number; fileName: string }) => {
+      const progressListener: Parameters<typeof window.electronAPI.onExportProgress>[0] = (_event, data) => {
         progressModal.value = {
           visible: true,
           title: t('exportProgress.title'),

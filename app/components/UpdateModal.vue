@@ -115,7 +115,7 @@ const error = ref('');
 onMounted(() => {
   if (import.meta.client && window.electronAPI) {
     // Listen for download progress
-    window.electronAPI.onUpdateDownloadProgress((event: any, progress: any) => {
+    window.electronAPI.onUpdateDownloadProgress((_event, progress) => {
       downloading.value = true;
       downloadPercent.value = progress.percent;
     });
@@ -127,7 +127,7 @@ onMounted(() => {
     });
 
     // Listen for errors
-    window.electronAPI.onUpdateError((event: any, errorMessage: string) => {
+    window.electronAPI.onUpdateError((_event, errorMessage) => {
       error.value = errorMessage;
       downloading.value = false;
     });
