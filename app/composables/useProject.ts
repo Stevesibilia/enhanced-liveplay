@@ -9,6 +9,7 @@ import type {
   CartItem
 } from '~/types/project';
 import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+import { CURRENT_SCHEMA_VERSION, validateProjectStructure, runMigrations } from '~/utils/migrations';
 
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
@@ -99,6 +100,7 @@ export const useProject = () => {
       const newProject: Project = {
         name,
         version: '1.0.0',
+        schemaVersion: CURRENT_SCHEMA_VERSION,
         folderPath,
         items: [],
         cartItems: [],
@@ -133,7 +135,28 @@ export const useProject = () => {
       if (import.meta.client && window.electronAPI) {
         const result = await window.electronAPI.readFile(projectFilePath);
         if (result.success) {
-          const project: Project = JSON.parse(result.data);
+          let parsed: any;
+          try {
+            parsed = JSON.parse(result.data);
+          } catch (e) {
+            console.error('Project file contains invalid JSON:', e);
+            return false;
+          }
+
+          // Validate minimum required structure
+          try {
+            validateProjectStructure(parsed);
+          } catch (e: any) {
+            console.error('Project validation failed:', e.message);
+            return false;
+          }
+
+          // Run versioned migrations
+          const versionBefore = parsed.schemaVersion ?? 0;
+          runMigrations(parsed);
+          const wasMigrated = versionBefore < CURRENT_SCHEMA_VERSION;
+
+          const project: Project = parsed;
           
           // Set folderPath from the project file location
           // Extract the directory path from the .liveplay file path
@@ -145,11 +168,13 @@ export const useProject = () => {
           console.log('Opening project from:', projectFilePath);
           console.log('Project folder path set to:', folderPath);
           
-          // Migrate project to ensure new properties exist
-          migrateProject(project);
-          
           currentProject.value = project;
           await window.electronAPI.setCurrentProject(projectFilePath);
+
+          // Persist migrated schema version so migrations don't re-run on next open
+          if (wasMigrated) {
+            saveProject();
+          }
           
           // Restore cart-only items to memory
           const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
@@ -170,50 +195,6 @@ export const useProject = () => {
     } catch (error) {
       console.error('Error opening project:', error);
       return false;
-    }
-  };
-
-  // Migrate project to add new properties for backwards compatibility
-  const migrateProject = (project: Project) => {
-    // Add cartOnlyItems if missing
-    if (!project.cartOnlyItems) {
-      project.cartOnlyItems = [];
-    }
-    
-    // Add cartSlotKeys if missing — use defaults
-    if (!project.cartSlotKeys) {
-      project.cartSlotKeys = { ...DEFAULT_CART_SLOT_KEYS };
-    }
-    
-    const migrateItem = (item: BaseItem) => {
-      if (item.type === 'audio') {
-        const audioItem = item as AudioItem;
-        
-        // Add fadeOutDuration if missing
-        if (audioItem.fadeOutDuration === undefined) {
-          audioItem.fadeOutDuration = 1.0;
-        }
-        
-        // Add ducking fade times if missing
-        if (audioItem.duckingBehavior) {
-          if (audioItem.duckingBehavior.duckFadeIn === undefined) {
-            audioItem.duckingBehavior.duckFadeIn = 0.25;
-          }
-          if (audioItem.duckingBehavior.duckFadeOut === undefined) {
-            audioItem.duckingBehavior.duckFadeOut = 1.0;
-          }
-        }
-      } else if (item.type === 'group') {
-        const groupItem = item as GroupItem;
-        for (const child of groupItem.children) {
-          migrateItem(child);
-        }
-      }
-    };
-    
-    // Migrate all items
-    for (const item of project.items) {
-      migrateItem(item);
     }
   };
 

@@ -121,6 +121,7 @@ export interface CartItem {
 export interface Project {
   name: string;
   version: string;
+  schemaVersion: number;
   folderPath: string;
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
