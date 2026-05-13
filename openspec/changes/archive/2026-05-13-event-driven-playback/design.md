@@ -38,6 +38,8 @@ The polling block at `app/composables/useAudioEngine.ts:269-289` (`absoluteTime 
 
 **Alternative considered**: Keep polling as a safety net. Rejected — if `onend` is unreliable on `html5: true` we need to know and fix that, not paper over it. Step 1 of implementation is verifying `onend` fires reliably at sprite end.
 
+**Spike result (verified 2026-05-13)**: `onend` does **not** fire at the sprite boundary under `html5: true`. With a sprite `[1000, 4000]` (inPoint=1s, outPoint=5s) on a 231.9s file, `onend` fired immediately at `seek()=1` (the inPoint) rather than waiting for the sprite to finish at outPoint=5. Separately, `onstop` fires correctly on manual `howl.stop()` and `onend` does *not* fire on manual stop — so there is no double-fire risk. **Decision**: end detection uses a scheduled `setTimeout(finalizeCue, trimmedDuration * 1000)` armed in `scheduleCueTriggers`, matching the same pattern used for crossfade/stop-fade triggers. The existing `onend` handler becomes a no-op safety net for the edge case where the browser fires the HTML `ended` event at the underlying file end.
+
 ### D2: Schedule crossfade and stop-fade as timeouts, not poll-checks
 
 When a cue starts (after `onload` resolves `howl.duration()`), compute:

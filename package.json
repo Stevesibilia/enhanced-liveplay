@@ -13,7 +13,8 @@
     "electron:build": "electron-builder",
     "generate": "cross-env NODE_ENV=production nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "test": "vitest run"
   },
   "keywords": [
     "electron",
@@ -36,6 +37,7 @@
     "nuxt": "^4.0.0",
     "sass": "^1.69.5",
     "typescript": "^6.0.0",
+    "vitest": "^4.1.6",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
