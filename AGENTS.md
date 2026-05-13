@@ -18,6 +18,8 @@ The upstream (`origin`) is not kept up to date and should be treated as read-onl
 
 **"Update the PR"** means: commit the current changes on the PR's branch and push to the fork. The push updates the existing PR automatically.
 
+**Local and remote branch names must match.** Always push with `git push fork <branch-name>` where `<branch-name>` is identical to the local branch — never rename on push (no `local:remote` refspec). This keeps `git status`, PR URLs, and `gh pr` lookups predictable.
+
 For every change:
 
 1. **Branch from `dev`** on the fork — never work directly on `dev`
