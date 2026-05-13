@@ -195,6 +195,20 @@ let currentProject = null;
 let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
 
+// Guard: resolve a path and verify it lives inside the active project folder.
+// Returns the resolved path on success, or null if outside the project.
+// If no project is open yet, allows access (user is selecting files via native dialogs).
+function pathIsInProjectFolder(requestedPath) {
+  if (!currentProject) return path.resolve(requestedPath);
+  const projectFolder = path.dirname(currentProject);
+  const resolved = path.resolve(requestedPath);
+  // Ensure the resolved path starts with the project folder (+ separator to avoid prefix tricks)
+  if (resolved === projectFolder || resolved.startsWith(projectFolder + path.sep)) {
+    return resolved;
+  }
+  return null;
+}
+
 // Check if --dev flag is present in command line arguments
 const isDevMode = process.argv.includes('--dev') || !app.isPackaged;
 
@@ -996,7 +1010,9 @@ ipcMain.handle('select-audio-files', async () => {
 
 ipcMain.handle('read-file', async (event, filePath) => {
   try {
-    const data = fs.readFileSync(filePath, 'utf8');
+    const safe = pathIsInProjectFolder(filePath);
+    if (!safe) return { success: false, error: 'Path outside project folder' };
+    const data = await fs.promises.readFile(safe, 'utf8');
     return { success: true, data };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1005,7 +1021,9 @@ ipcMain.handle('read-file', async (event, filePath) => {
 
 ipcMain.handle('read-audio-file', async (event, filePath) => {
   try {
-    const data = fs.readFileSync(filePath);
+    const safe = pathIsInProjectFolder(filePath);
+    if (!safe) return { success: false, error: 'Path outside project folder' };
+    const data = await fs.promises.readFile(safe);
     // Convert Node.js Buffer to ArrayBuffer
     const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
     return { success: true, data: Array.from(new Uint8Array(arrayBuffer)) };
@@ -1016,7 +1034,9 @@ ipcMain.handle('read-audio-file', async (event, filePath) => {
 
 ipcMain.handle('write-file', async (event, filePath, data) => {
   try {
-    fs.writeFileSync(filePath, data, 'utf8');
+    const safe = pathIsInProjectFolder(filePath);
+    if (!safe) return { success: false, error: 'Path outside project folder' };
+    await fs.promises.writeFile(safe, data, 'utf8');
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1025,12 +1045,14 @@ ipcMain.handle('write-file', async (event, filePath, data) => {
 
 ipcMain.handle('copy-file', async (event, source, destination) => {
   try {
+    // Source may be outside the project (user-selected via native dialog) — only guard destination
+    const safeSrc = path.resolve(source);
+    const safeDst = pathIsInProjectFolder(destination);
+    if (!safeDst) return { success: false, error: 'Destination outside project folder' };
     // Ensure destination directory exists
-    const destDir = path.dirname(destination);
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
-    }
-    fs.copyFileSync(source, destination);
+    const destDir = path.dirname(safeDst);
+    await fs.promises.mkdir(destDir, { recursive: true });
+    await fs.promises.copyFile(safeSrc, safeDst);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1039,9 +1061,9 @@ ipcMain.handle('copy-file', async (event, source, destination) => {
 
 ipcMain.handle('ensure-directory', async (event, dirPath) => {
   try {
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
+    const safe = pathIsInProjectFolder(dirPath);
+    if (!safe) return { success: false, error: 'Path outside project folder' };
+    await fs.promises.mkdir(safe, { recursive: true });
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

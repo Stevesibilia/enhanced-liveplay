@@ -20,26 +20,16 @@ The progress interval polls `howl.seek()` every 100 ms and uses it to detect "en
 
 `app/utils/audio.ts:45` subtracts 10 dB from every per-cue volume "to give +10 dB headroom" — but Howler clamps `.volume()` to [0,1], which is exactly the issue we hit on master volume. So the offset doesn't buy headroom; it just lowers the noise floor by 10 dB. The UI label "0 dB" is actually -10 dB at the speakers. Either remove the offset or do the GainNode-bypass for real (and document it clearly).
 
-### 4. Two composables declare `useState('activeCues', …)` with conflicting types
+### 4. ~~Two composables declare `useState('activeCues', …)` with conflicting types~~ ✅ Addressed
 
 - `useAudioEngine.ts:40` → `Map<string, ActiveCueState>`
-- `useProject.ts:17` → `Map<string, any>`
+- ~~`useProject.ts:17` → `Map<string, any>`~~ — removed
 
-Nuxt shares state by key, so the runtime is one Map but `useProject` sees it as `any`. Every consumer that pulls activeCues via `useProject` loses type safety. Pick one owner (`useAudioEngine`), expose a typed getter, delete the duplicate.
+Duplicate declaration deleted from `useProject.ts`. The single owner is now `useAudioEngine`; `closeProject` imports it from there. All consumers get full type safety.
 
-### 5. Electron IPC handlers expose raw filesystem to the renderer
+### 5. ~~Electron IPC handlers expose raw filesystem to the renderer~~ ✅ Addressed
 
-`electron/main.js:997-1024`:
-
-```js
-ipcMain.handle('read-file', (event, filePath) => fs.readFileSync(filePath, 'utf8'))
-ipcMain.handle('write-file', (event, filePath, data) => fs.writeFileSync(filePath, data))
-ipcMain.handle('copy-file', (event, source, destination) => …)
-```
-
-No path validation, no allow-list, no check that the path is inside the project folder. Combined with `webSecurity: false` on the main window (line 418) and the fact that the app loads user-supplied `.liveplay` JSON files, a malicious project file that triggers HTML/JS injection anywhere in the renderer could read or overwrite arbitrary files on the user's disk. Wrap these with a `pathIsInProjectFolder()` guard.
-
-Also: `readFileSync` / `writeFileSync` in handlers block the main process event loop. Use `fs.promises`.
+All filesystem IPC handlers (`read-file`, `read-audio-file`, `write-file`, `copy-file`, `ensure-directory`) now validate paths via `pathIsInProjectFolder()` — resolves the path and checks it starts with the active project folder. Sync `fs.*Sync` calls converted to `fs.promises.*`. `webSecurity: false` still present (line 418) — separate concern.
 
 ### 6. `: any` is everywhere in the IPC boundary
 
@@ -49,9 +39,9 @@ Also: `readFileSync` / `writeFileSync` in handlers block the main process event 
 
 Zero `*.test.*` / `*.spec.*` files, no `tests/` directory, no test script in `package.json`. For a desktop audio app where the core engine has subtle timing/race issues, this is the most expensive omission. Even a handful of unit tests around `useCartHotkeys` (binding match, conflict detection, key formatting) and `audio.ts` (dB conversion math) would have made the last few days of fixes trivial to verify.
 
-### 8. `saveProject()` is called from 20 sites with no debouncing
+### 8. ~~`saveProject()` is called from 20 sites with no debouncing~~ ✅ Addressed
 
-Every mutation calls `saveProject()` synchronously: `JSON.stringify` the entire project + write to disk. For large projects (lots of cart-only items with waveforms), this stalls the UI on every keypress in a numeric input. A 500 ms debounce in the composable would be invisible to users and remove the worst latency spikes.
+`saveProject()` is now a 500ms debounced wrapper around `saveProjectImmediate()`. `flushPendingSave()` is called on `closeProject` and registered on `beforeunload`. All 18 existing call sites work without changes — the debounce is transparent.
 
 ### 9. Project file format has no schema or version migration
 
@@ -61,9 +51,9 @@ Every mutation calls `saveProject()` synchronously: `JSON.stringify` the entire 
 
 `WaveformTrimmer.vue` 1719 lines, `CartSlot.vue` 1063, `PlaylistItem.vue` 948, `PropertiesPanel.vue` 909. Each has its own `setInterval` for progress polling (10 `setInterval` call sites total), each with its own cleanup. The state these components own (progress, polling, fade triggers) duplicates what's already in `useAudioEngine.activeCues`. Subscribe to a single source of truth and let the cue state drive the UI.
 
-### 11. `DEFAULT_AUDIO_ITEM` and `DEFAULT_CART_AUDIO_ITEM` diverge
+### 11. ~~`DEFAULT_AUDIO_ITEM` and `DEFAULT_CART_AUDIO_ITEM` diverge~~ ✅ Addressed
 
-`app/types/project.ts:182` and `:201` are nearly identical except `endBehavior` and `duckingBehavior`. Easy to forget to update both when adding a field (e.g., the new `crossFade: 0` was added). Compose one base with category overrides.
+Extracted `BASE_AUDIO_DEFAULTS` with the 9 shared fields; `DEFAULT_AUDIO_ITEM` and `DEFAULT_CART_AUDIO_ITEM` now spread the base and override only `endBehavior` and `duckingBehavior`.
 
 ### 12. Reactivity foot-guns
 
@@ -74,11 +64,11 @@ Every mutation calls `saveProject()` synchronously: `JSON.stringify` the entire 
 ## Quick wins (low effort, high payoff)
 
 1. ~~Extract Howl creation in `playCue` and `startCrossfadeTrack` into one `createHowlForItem(item, opts)` function~~ — done in PR #19 as `setupCueForPlayback`.
-2. Wrap the three filesystem IPC handlers in a `pathIsInProjectFolder` check (~30 min, closes the renderer-escape attack surface).
+2. ~~Wrap the three filesystem IPC handlers in a `pathIsInProjectFolder` check~~ — done in quick-wins-batch-1.
 3. Add a `schemaVersion` field and a `validateProject(json)` in `openProject` (~1 hour, prevents the next "old project file crashes" bug).
-4. Add a single `vitest` config and write tests for `app/utils/audio.ts` and the pure helpers in `useCartHotkeys` (~2 hours, establishes the testing pattern).
-5. Fix the `Map<string, any>` duplication in `useProject` (~5 min).
-6. Debounce `saveProject` (~10 min).
+4. ~~Add a single `vitest` config and write tests for `app/utils/audio.ts` and the pure helpers in `useCartHotkeys`~~ — vitest established in event-driven-playback (20 tests).
+5. ~~Fix the `Map<string, any>` duplication in `useProject`~~ — done in quick-wins-batch-1.
+6. ~~Debounce `saveProject`~~ — done in quick-wins-batch-1.
 
 ## Bigger projects (sequenced)
 

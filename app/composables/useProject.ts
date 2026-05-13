@@ -14,7 +14,6 @@ export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
   const selectedItem = useState<BaseItem | null>('selectedItem', () => null);
   const selectedItems = useState<Set<string>>('selectedItems', () => new Set()); // Track multiple selections by UUID
-  const activeCues = useState<Map<string, any>>('activeCues', () => new Map());
   const waveformUpdateKey = useState<number>('waveformUpdateKey', () => 0);
 
   // Force UI update for waveforms
@@ -299,7 +298,7 @@ export const useProject = () => {
   };
 
   // Save the current project
-  const saveProject = async (): Promise<boolean> => {
+  const saveProjectImmediate = async (): Promise<boolean> => {
     try {
       if (!currentProject.value) return false;
 
@@ -324,10 +323,46 @@ export const useProject = () => {
     }
   };
 
+  // Debounced save — collapses rapid calls into a single write after 500ms
+  let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+  const saveProject = (): void => {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      saveTimeout = null;
+      saveProjectImmediate();
+    }, 500);
+  };
+
+  // Flush any pending debounced save immediately (call before quit / project close)
+  const flushPendingSave = async (): Promise<boolean> => {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+      saveTimeout = null;
+      return saveProjectImmediate();
+    }
+    return true;
+  };
+
+  // Register beforeunload to flush pending saves on app close (idempotent via flag)
+  if (import.meta.client && !(window as any).__saveFlushRegistered) {
+    (window as any).__saveFlushRegistered = true;
+    window.addEventListener('beforeunload', () => {
+      if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+        // Fire synchronously — best-effort, browser may not wait for async
+        saveProjectImmediate();
+      }
+    });
+  }
+
   // Close the current project
-  const closeProject = () => {
+  const closeProject = async () => {
+    await flushPendingSave();
     currentProject.value = null;
     selectedItem.value = null;
+    // Clear active cues via the typed state owned by useAudioEngine
+    const { activeCues } = useAudioEngine();
     activeCues.value.clear();
     
     // Clear cart-only items from memory
@@ -462,7 +497,6 @@ export const useProject = () => {
     currentProject,
     selectedItem,
     selectedItems,
-    activeCues,
     waveformUpdateKey,
     triggerWaveformUpdate,
     toggleItemSelection,
@@ -470,6 +504,7 @@ export const useProject = () => {
     createNewProject,
     openProject,
     saveProject,
+    flushPendingSave,
     closeProject,
     addItem,
     removeItem,
