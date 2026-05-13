@@ -268,8 +268,9 @@ export const useAudioEngine = () => {
     if (cue.progressInterval) clearInterval(cue.progressInterval);
     cancelCueTriggers(cue);
 
-    // Stop the howl if still playing (e.g. onend from browser vs our timeout)
-    if (cue.howl.playing()) cue.howl.stop();
+    // Stop the howl unconditionally — in html5 loop mode, playing() can
+    // briefly return false between loop iterations, causing a leaked Howl.
+    cue.howl.stop();
 
     activeCues.value.delete(item.uuid);
     restoreDuckedVolumes(item.uuid);
@@ -1184,7 +1185,14 @@ export const useAudioEngine = () => {
 
   const setLoopForCue = (uuid: string, loop: boolean) => {
     const cue = activeCues.value.get(uuid);
-    if (cue) cue.howl.loop(loop);
+    if (!cue) return;
+    cue.howl.loop(loop);
+    // Reschedule triggers — cancels stale endTimeout when looping on,
+    // re-arms it when looping off.
+    const item = findItemByUuid(uuid);
+    if (item && item.type === 'audio') {
+      scheduleCueTriggers(cue, item as AudioItem);
+    }
   };
 
   /**
