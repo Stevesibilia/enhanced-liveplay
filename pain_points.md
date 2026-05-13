@@ -10,9 +10,11 @@ The ~250-line Howl-creation block is now factored into `setupCueForPlayback` (`a
 
 Minor residual: `applyVolumeOffset(item.volume)` is recomputed at the call site in `playCue` and the `initialVolume` parameter is ignored when building `ActiveCueState` inside `setupCueForPlayback` (:388). Not a bug, just minor redundancy.
 
-### 2. Audio-thread races baked into the design
+### 2. ~~Audio-thread races baked into the design~~ ✅ Addressed
 
 The progress interval polls `howl.seek()` every 100 ms and uses it to detect "ended", trigger crossfades, fire stop-fades, and update group progress. That polling-based control-plane is the source of the bugs fixed in PR #17 — loop boundary, loop-toggle, audio-thread vs JS-thread events. The proper signals exist (`onend`, `onplay`, `onstop`) but are partially used. Long-term: replace polling for *decisions* with Howler events; keep polling only for *display* (`currentTime` updates).
+
+> **Resolved by the `event-driven-playback` change.** End detection, crossfade, and stop-fade triggers are now scheduled as `setTimeout` callbacks computed at cue start. The 100 ms interval drives UI only (`currentTime`, levels, group progress). Pause/resume/seek/mutation all reschedule triggers correctly. See `scheduleCueTriggers`, `cancelCueTriggers`, and `finalizeCue` in `useAudioEngine.ts`.
 
 ### 3. `applyVolumeOffset` is a -10 dB hack that silently makes everything quieter
 
