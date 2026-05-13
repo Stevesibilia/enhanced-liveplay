@@ -1,6 +1,6 @@
 import type { AudioItem, DuckingBehavior, GroupItem } from '~/types/project';
 import { Howl, Howler } from 'howler';
-import { linearToDb, dbToLinear, applyVolumeOffset as applyVolumeOffsetUtil, estimateCurrentLevel } from '~/utils/audio';
+import { linearToDb, dbToLinear, estimateCurrentLevel } from '~/utils/audio';
 
 // Active cue tracking with Howler instances
 interface ActiveCueState {
@@ -59,15 +59,8 @@ export const useAudioEngine = () => {
     Howler.volume(clamped <= -60 ? 0 : dbToLinear(clamped));
   };
 
-  // Helper function to apply -10dB offset to volume
-  // This allows the UI to show 0dB as "normal" while actually playing at -10dB
-  // Giving us +10dB headroom for louder playback
-  const applyVolumeOffset = (uiVolume: number): number => {
-    // Clamp input volume to max +10dB (3.162) to prevent issues
-    const maxVolume = Math.pow(10, 10 / 20); // +10dB = 3.162
-    const clampedVolume = Math.min(Math.max(uiVolume, 0), maxVolume);
-    return applyVolumeOffsetUtil(clampedVolume);
-  };
+  /** Clamp a linear volume value to the range Howler accepts in html5 mode. */
+  const clampVolume = (v: number): number => Math.min(Math.max(v, 0), 1);
 
   // Estimate audio level based on volume and waveform data
   // This samples the waveform at the current playback position
@@ -388,7 +381,7 @@ export const useAudioEngine = () => {
    * @param initialVolume Howler volume to start at (linear). Defaults to the
    *   item's target volume; pass `0` for a fade-in.
    */
-  const setupCueForPlayback = (item: AudioItem, initialVolume: number = applyVolumeOffset(item.volume)): Howl => {
+  const setupCueForPlayback = (item: AudioItem, initialVolume: number = clampVolume(item.volume)): Howl => {
     const audioPath = `${currentProject.value!.folderPath}/media/${item.mediaFileName}`;
     const fileUrl = 'file:///' + audioPath.replace(/\\/g, '/');
 
@@ -473,7 +466,7 @@ export const useAudioEngine = () => {
       }
     });
 
-    const targetVolume = applyVolumeOffset(item.volume);
+    const targetVolume = clampVolume(item.volume);
     const activeCue: ActiveCueState = {
       uuid: item.uuid,
       displayName: item.displayName,
@@ -520,11 +513,11 @@ export const useAudioEngine = () => {
       const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
       const useFadeIn = !isCartItem && !!item.playFade && item.playFade > 0;
 
-      const howl = setupCueForPlayback(item, useFadeIn ? 0 : applyVolumeOffset(item.volume));
+      const howl = setupCueForPlayback(item, useFadeIn ? 0 : clampVolume(item.volume));
 
       playHowl(howl, item);
       if (useFadeIn) {
-        howl.fade(0, applyVolumeOffset(item.volume), item.playFade * 1000);
+        howl.fade(0, clampVolume(item.volume), item.playFade * 1000);
       }
 
       handleStartBehavior(item);
@@ -826,7 +819,7 @@ export const useAudioEngine = () => {
       const howl = setupCueForPlayback(item, 0);
 
       playHowl(howl, item);
-      howl.fade(0, applyVolumeOffset(item.volume), crossfadeDuration * 1000);
+      howl.fade(0, clampVolume(item.volume), crossfadeDuration * 1000);
 
       handleStartBehavior(item);
       scheduleCustomActions(item);
@@ -1182,7 +1175,7 @@ export const useAudioEngine = () => {
 
     const cue = activeCues.value.get(uuid);
     if (cue) {
-      const appliedVolume = applyVolumeOffset(volume);
+      const appliedVolume = clampVolume(volume);
       cue.howl.volume(appliedVolume);
       cue.volume = appliedVolume;
       cue.originalVolume = appliedVolume;

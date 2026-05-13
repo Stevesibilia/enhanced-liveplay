@@ -35,28 +35,6 @@ export function linearToDb(linear: number): number {
 }
 
 /**
- * Apply -10dB headroom offset for Howler.js playback
- * UI shows 0dB as "normal" while actually playing at -10dB
- * This gives +10dB headroom for louder playback
- * 
- * @param uiVolume - Volume from UI (0.0 to ~3.16 linear)
- * @returns Howler volume (0.0 to 1.0 for -10dB offset, can exceed 1.0)
- */
-export function applyVolumeOffset(uiVolume: number): number {
-  // Convert UI volume to dB
-  const uiDB = linearToDb(uiVolume);
-  
-  // Apply -10dB offset
-  const actualDB = uiDB - 10;
-  
-  // Convert back to linear for Howler
-  const actualVolume = dbToLinear(actualDB);
-  
-  // Allow values above 1.0 for Web Audio API
-  return Math.max(0, actualVolume);
-}
-
-/**
  * Calculate perceived loudness (RMS) from waveform peaks
  * RMS = Root Mean Square = sqrt(average of squared samples)
  * 
