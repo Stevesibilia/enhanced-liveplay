@@ -215,278 +215,232 @@ export const useAudioEngine = () => {
     }
   };
 
-  // Play an audio item (using Howler.js in renderer)
-  const playCue = async (item: AudioItem): Promise<boolean> => {
-    try {
-      if (!import.meta.client || !currentProject.value) return false;
+  /**
+   * Build a Howl + ActiveCueState for `item`, register it in `activeCues`,
+   * apply ducking, and update group progress. Does NOT call `howl.play()` —
+   * the caller decides when and how to start playback (and any fade-in).
+   *
+   * @param initialVolume Howler volume to start at (linear). Defaults to the
+   *   item's target volume; pass `0` for a fade-in.
+   */
+  const setupCueForPlayback = (item: AudioItem, initialVolume: number = applyVolumeOffset(item.volume)): Howl => {
+    const audioPath = `${currentProject.value!.folderPath}/media/${item.mediaFileName}`;
+    const fileUrl = 'file:///' + audioPath.replace(/\\/g, '/');
 
-      // Check if already playing
-      if (activeCues.value.has(item.uuid)) {
-        console.warn('Cue already playing:', item.uuid);
-        return false;
-      }
+    const howl = new Howl({
+      src: [fileUrl],
+      html5: true,
+      volume: initialVolume,
+      loop: item.endBehavior.action === 'loop',
+      sprite: item.inPoint || item.outPoint ? {
+        main: [
+          (item.inPoint || 0) * 1000,
+          ((item.outPoint || item.duration) - (item.inPoint || 0)) * 1000
+        ]
+      } : undefined,
+      onload: () => {
+        const cue = activeCues.value.get(item.uuid);
+        if (!cue) return;
 
-      const audioPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-      
-      // Convert file path to file:// URL
-      const fileUrl = 'file:///' + audioPath.replace(/\\/g, '/');
-      
-      // Create Howler instance
-      const howl = new Howl({
-        src: [fileUrl],
-        html5: true, // Use HTML5 Audio for better file system access
-        volume: applyVolumeOffset(item.volume), // Apply -10dB offset
-        loop: item.endBehavior.action === 'loop',
-        sprite: item.inPoint || item.outPoint ? {
-          main: [
-            (item.inPoint || 0) * 1000,
-            ((item.outPoint || item.duration) - (item.inPoint || 0)) * 1000
-          ]
-        } : undefined,
-        onload: () => {
-          const cue = activeCues.value.get(item.uuid);
-          if (cue) {
-            // Get the actual file duration from Howler
-            const actualFileDuration = howl.duration();
-            
-            // For trimmed items (with sprites), duration should be the trimmed duration
-            // But make sure outPoint doesn't exceed actual file duration
-            const inPoint = item.inPoint || 0;
-            const requestedOutPoint = item.outPoint || item.duration;
-            const actualOutPoint = Math.min(requestedOutPoint, actualFileDuration);
-            
-            // Calculate trimmed duration, ensuring it doesn't exceed file bounds
-            const trimmedDuration = actualOutPoint - inPoint;
-            
-            cue.duration = trimmedDuration;
-            
-            // Update the outPoint in cue state to reflect actual file bounds
-            cue.outPoint = actualOutPoint;
-            
-            // Start progress tracking
-            cue.progressInterval = setInterval(() => {
-              if (!activeCues.value.has(item.uuid)) {
-                clearInterval(cue.progressInterval);
-                return;
-              }
-              
-              // When using sprites, seek() returns absolute position in file
-              // We need to subtract inPoint to get position relative to sprite start
-              const absoluteTime = howl.seek() as number;
-              const inPoint = item.inPoint || 0;
-              const currentTime = absoluteTime - inPoint;
-              
-              // Check if playback has reached or exceeded the actual file duration.
-              // Skip for looping items — Howler handles the loop; the interval
-              // firing near duration would otherwise incorrectly stop the track.
-              const actualFileDuration = howl.duration();
-              if (item.endBehavior.action !== 'loop' &&
-                  (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration))) {
-                howl.stop();
-                clearInterval(cue.progressInterval);
-                activeCues.value.delete(item.uuid);
-                restoreDuckedVolumes(item.uuid);
+        const actualFileDuration = howl.duration();
+        const inPoint = item.inPoint || 0;
+        const requestedOutPoint = item.outPoint || item.duration;
+        const actualOutPoint = Math.min(requestedOutPoint, actualFileDuration);
+        const trimmedDuration = actualOutPoint - inPoint;
 
-                const parentGroup = findParentGroup(item.uuid);
-                if (parentGroup) {
-                  const groupState = activeGroups.value.get(parentGroup.uuid);
-                  if (groupState) {
-                    const itemIndex = groupState.playbackChain.indexOf(item.uuid);
-                    if (itemIndex === groupState.playbackChain.length - 1) {
-                      stopGroupTracking(parentGroup.uuid);
-                    }
-                  }
-                }
+        cue.duration = trimmedDuration;
+        cue.outPoint = actualOutPoint;
 
-                handleEndBehavior(item);
-                return;
-              }
-              
-              // Clamp to valid range (0 to trimmed duration)
-              cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
-              
-              // Update audio levels for VU meters
-              updateAudioLevels();
-              
-              // Check if this is a cart item
-              const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
-              
-              // Calculate time remaining
-              const timeRemaining = cue.duration - cue.currentTime;
-              
-              // Handle crossfade if configured (takes priority over stop fade)
-              if (!isCartItem && item.crossFade && item.crossFade > 0 && !cue.crossFadeTriggered) {
-                // Trigger crossfade when we reach the crossfade point
-                if (timeRemaining <= item.crossFade) {
-                  cue.crossFadeTriggered = true;
-                  
-                  // Start fade out of current track
-                  const currentVol = howl.volume();
-                  howl.fade(currentVol, 0, item.crossFade * 1000);
-                  
-                  // Determine next item based on end behavior
-                  let nextItem: AudioItem | null = null;
-                  const behavior = item.endBehavior;
-                  
-                  if (behavior.action === 'next') {
-                    // Play next item in the same list
-                    nextItem = getNextItem(item.index);
-                  } else if (behavior.action === 'goto-item' && behavior.targetUuid) {
-                    // Play specific item by UUID
-                    const targetItem = findItemByUuid(behavior.targetUuid);
-                    if (targetItem && targetItem.type === 'audio') {
-                      nextItem = targetItem as AudioItem;
-                    }
-                  } else if (behavior.action === 'goto-index' && behavior.targetIndex) {
-                    // Play specific item by index
-                    const targetItem = findItemByIndex(behavior.targetIndex);
-                    if (targetItem && targetItem.type === 'audio') {
-                      nextItem = targetItem as AudioItem;
-                    }
-                  }
-                  
-                  // If we have a next item, start it with fade in
-                  if (nextItem) {
-                    startCrossfadeTrack(nextItem, item.crossFade);
-                  }
-                }
-              }
-              // Handle stop fade if configured and not a cart item (only if no crossfade)
-              else if (!isCartItem && item.stopFade && item.stopFade > 0 && !cue.stopFadeTriggered) {
-                // Trigger stop fade when we reach the fade-out point
-                if (timeRemaining <= item.stopFade) {
-                  cue.stopFadeTriggered = true;
-                  const currentVol = howl.volume();
-                  howl.fade(currentVol, 0, item.stopFade * 1000);
-                }
-              }
-              
-              // Update group progress
-              const parentGroup = findParentGroup(item.uuid);
-              if (parentGroup) {
-                const groupState = activeGroups.value.get(parentGroup.uuid);
-                if (groupState) {
-                  // Calculate accumulated time up to current item
-                  let accumulatedTime = 0;
-                  for (let i = 0; i < groupState.currentItemIndex; i++) {
-                    const uuid = groupState.playbackChain[i];
-                    const prevItem = findItemByUuid(uuid);
-                    if (prevItem && prevItem.type === 'audio') {
-                      const audioItem = prevItem as AudioItem;
-                      accumulatedTime += audioItem.outPoint - audioItem.inPoint;
-                    }
-                  }
-                  // Add current item's progress
-                  groupState.currentTime = accumulatedTime + currentTime;
-                }
-              }
-              
-            }, 100); // Update every 100ms
+        cue.progressInterval = setInterval(() => {
+          if (!activeCues.value.has(item.uuid)) {
+            clearInterval(cue.progressInterval);
+            return;
           }
-        },
-        onend: () => {
-          const cue = activeCues.value.get(item.uuid);
 
-          // Don't handle end behavior for looping items - Howler handles loop internally
-          // Only clean up and handle end behavior for non-looping items
-          if (item.endBehavior.action !== 'loop') {
-            if (cue && cue.progressInterval) {
-              clearInterval(cue.progressInterval);
-            }
-            // With html5:true the browser restarts the audio before firing `ended`,
-            // so if loop was just disabled the howl may still be playing. Stop it.
-            if (howl.playing()) howl.stop();
+          // seek() returns absolute position in file; subtract inPoint to get
+          // position within the sprite.
+          const absoluteTime = howl.seek() as number;
+          const inPoint = item.inPoint || 0;
+          const currentTime = absoluteTime - inPoint;
+
+          // End detection. Skip for looping items — Howler handles the loop;
+          // firing near duration would otherwise incorrectly stop the track.
+          const actualFileDuration = howl.duration();
+          if (item.endBehavior.action !== 'loop' &&
+              (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration))) {
+            howl.stop();
+            clearInterval(cue.progressInterval);
             activeCues.value.delete(item.uuid);
             restoreDuckedVolumes(item.uuid);
-            
-            // Check if we need to stop group tracking
+
             const parentGroup = findParentGroup(item.uuid);
             if (parentGroup) {
               const groupState = activeGroups.value.get(parentGroup.uuid);
               if (groupState) {
                 const itemIndex = groupState.playbackChain.indexOf(item.uuid);
-                // If this is the last item in the chain, stop group tracking
                 if (itemIndex === groupState.playbackChain.length - 1) {
                   stopGroupTracking(parentGroup.uuid);
                 }
               }
             }
-            
+
             handleEndBehavior(item);
+            return;
           }
-          // For looping items, keep the progress interval running
-        },
-        onloaderror: (id, error) => {
-          console.error('Error loading audio:', error);
-          activeCues.value.delete(item.uuid);
-        },
-        onplayerror: (id, error) => {
-          console.error('Error playing audio:', error);
-          activeCues.value.delete(item.uuid);
+
+          cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
+          updateAudioLevels();
+
+          const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
+          const timeRemaining = cue.duration - cue.currentTime;
+
+          // Crossfade takes priority over stop-fade.
+          if (!isCartItem && item.crossFade && item.crossFade > 0 && !cue.crossFadeTriggered) {
+            if (timeRemaining <= item.crossFade) {
+              cue.crossFadeTriggered = true;
+              const currentVol = howl.volume();
+              howl.fade(currentVol, 0, item.crossFade * 1000);
+
+              let nextItem: AudioItem | null = null;
+              const behavior = item.endBehavior;
+
+              if (behavior.action === 'next') {
+                nextItem = getNextItem(item.index);
+              } else if (behavior.action === 'goto-item' && behavior.targetUuid) {
+                const targetItem = findItemByUuid(behavior.targetUuid);
+                if (targetItem && targetItem.type === 'audio') {
+                  nextItem = targetItem as AudioItem;
+                }
+              } else if (behavior.action === 'goto-index' && behavior.targetIndex) {
+                const targetItem = findItemByIndex(behavior.targetIndex);
+                if (targetItem && targetItem.type === 'audio') {
+                  nextItem = targetItem as AudioItem;
+                }
+              }
+
+              if (nextItem) {
+                startCrossfadeTrack(nextItem, item.crossFade);
+              }
+            }
+          }
+          else if (!isCartItem && item.stopFade && item.stopFade > 0 && !cue.stopFadeTriggered) {
+            if (timeRemaining <= item.stopFade) {
+              cue.stopFadeTriggered = true;
+              const currentVol = howl.volume();
+              howl.fade(currentVol, 0, item.stopFade * 1000);
+            }
+          }
+
+          // Update group progress (accumulated time across the chain).
+          const parentGroup = findParentGroup(item.uuid);
+          if (parentGroup) {
+            const groupState = activeGroups.value.get(parentGroup.uuid);
+            if (groupState) {
+              let accumulatedTime = 0;
+              for (let i = 0; i < groupState.currentItemIndex; i++) {
+                const uuid = groupState.playbackChain[i];
+                const prevItem = findItemByUuid(uuid);
+                if (prevItem && prevItem.type === 'audio') {
+                  const audioItem = prevItem as AudioItem;
+                  accumulatedTime += audioItem.outPoint - audioItem.inPoint;
+                }
+              }
+              groupState.currentTime = accumulatedTime + currentTime;
+            }
+          }
+        }, 100);
+      },
+      onend: () => {
+        // Looping items: Howler manages the loop; do nothing.
+        if (item.endBehavior.action === 'loop') return;
+
+        const cue = activeCues.value.get(item.uuid);
+        if (cue && cue.progressInterval) clearInterval(cue.progressInterval);
+        // With html5:true the browser may restart audio before firing `ended`,
+        // so if loop was just disabled the howl may still be playing. Stop it.
+        if (howl.playing()) howl.stop();
+        activeCues.value.delete(item.uuid);
+        restoreDuckedVolumes(item.uuid);
+
+        const parentGroup = findParentGroup(item.uuid);
+        if (parentGroup) {
+          const groupState = activeGroups.value.get(parentGroup.uuid);
+          if (groupState) {
+            const itemIndex = groupState.playbackChain.indexOf(item.uuid);
+            if (itemIndex === groupState.playbackChain.length - 1) {
+              stopGroupTracking(parentGroup.uuid);
+            }
+          }
         }
-      });
 
-      // Create active cue state
-      const activeCue: ActiveCueState = {
-        uuid: item.uuid,
-        displayName: item.displayName,
-        currentTime: 0,
-        duration: item.inPoint || item.outPoint 
-          ? (item.outPoint || item.duration) - (item.inPoint || 0)
-          : item.duration,
-        volume: applyVolumeOffset(item.volume), // Apply -10dB offset
-        isDucked: false,
-        isPaused: false, // Initialize as not paused
-        originalVolume: applyVolumeOffset(item.volume), // Apply -10dB offset
-        duckedBy: new Set<string>(),
-        howl,
-        color: item.color, // Pass item color to active cue
-        inPoint: item.inPoint, // Store for seek operations
-        outPoint: item.outPoint, // Store for reference
-        currentLevel: -60, // Initialize level meter
-        peakLevel: -60 // Initialize peak hold
-      };
+        handleEndBehavior(item);
+      },
+      onloaderror: (_id, error) => {
+        console.error('Error loading audio:', error);
+        activeCues.value.delete(item.uuid);
+      },
+      onplayerror: (_id, error) => {
+        console.error('Error playing audio:', error);
+        activeCues.value.delete(item.uuid);
+      }
+    });
 
-      activeCues.value.set(item.uuid, activeCue);
+    const targetVolume = applyVolumeOffset(item.volume);
+    const activeCue: ActiveCueState = {
+      uuid: item.uuid,
+      displayName: item.displayName,
+      currentTime: 0,
+      duration: item.inPoint || item.outPoint
+        ? (item.outPoint || item.duration) - (item.inPoint || 0)
+        : item.duration,
+      volume: targetVolume,
+      isDucked: false,
+      isPaused: false,
+      originalVolume: targetVolume,
+      duckedBy: new Set<string>(),
+      howl,
+      color: item.color,
+      inPoint: item.inPoint,
+      outPoint: item.outPoint,
+      currentLevel: -60,
+      peakLevel: -60
+    };
 
-      // Apply ducking before playback
-      applyDucking(item.uuid, item.duckingBehavior);
-      
-      // Update group progress tracking
-      updateGroupProgress(item.uuid);
+    activeCues.value.set(item.uuid, activeCue);
+    applyDucking(item.uuid, item.duckingBehavior);
+    updateGroupProgress(item.uuid);
 
-      // Check if this is a cart item (skip fades for cart items)
-      const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
+    return howl;
+  };
 
-      // Apply play fade if configured and not a cart item
-      if (!isCartItem && item.playFade && item.playFade > 0) {
-        // Start at zero volume
-        howl.volume(0);
-        
-        // Start playback
-        if (item.inPoint || item.outPoint) {
-          howl.play('main');
-        } else {
-          howl.play();
-        }
-        
-        // Fade in to target volume
-        howl.fade(0, applyVolumeOffset(item.volume), item.playFade * 1000);
-      } else {
-        // Normal playback without fade
-        if (item.inPoint || item.outPoint) {
-          howl.play('main');
-        } else {
-          howl.play();
-        }
+  /** Helper: call `howl.play()` with the right sprite argument. */
+  const playHowl = (howl: Howl, item: AudioItem) => {
+    if (item.inPoint || item.outPoint) howl.play('main');
+    else howl.play();
+  };
+
+  // Play an audio item (using Howler.js in renderer)
+  const playCue = async (item: AudioItem): Promise<boolean> => {
+    try {
+      if (!import.meta.client || !currentProject.value) return false;
+
+      if (activeCues.value.has(item.uuid)) {
+        console.warn('Cue already playing:', item.uuid);
+        return false;
       }
 
-      // Handle start behavior
+      const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
+      const useFadeIn = !isCartItem && !!item.playFade && item.playFade > 0;
+
+      const howl = setupCueForPlayback(item, useFadeIn ? 0 : applyVolumeOffset(item.volume));
+
+      playHowl(howl, item);
+      if (useFadeIn) {
+        howl.fade(0, applyVolumeOffset(item.volume), item.playFade * 1000);
+      }
+
       handleStartBehavior(item);
-
-      // Schedule custom actions
       scheduleCustomActions(item);
-
       return true;
     } catch (error) {
       console.error('Error playing cue:', error);
@@ -760,229 +714,27 @@ export const useAudioEngine = () => {
     return null;
   };
 
-  // Start a track with crossfade (fade in over specified duration)
+  // Start a track with crossfade (fade in over specified duration).
+  // Always fades in from 0 — the item's own `playFade` is ignored here.
   const startCrossfadeTrack = async (item: AudioItem, crossfadeDuration: number) => {
     try {
       if (!import.meta.client || !currentProject.value) return;
 
-      // Check if already playing
       if (activeCues.value.has(item.uuid)) {
         console.warn('Cue already playing:', item.uuid);
         return;
       }
 
-      const audioPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-      const fileUrl = 'file:///' + audioPath.replace(/\\/g, '/');
-      
-      // Create Howler instance (simplified version of playCue)
-      const howl = new Howl({
-        src: [fileUrl],
-        html5: true,
-        volume: 0, // Start at zero for crossfade
-        loop: item.endBehavior.action === 'loop',
-        sprite: item.inPoint || item.outPoint ? {
-          main: [
-            (item.inPoint || 0) * 1000,
-            ((item.outPoint || item.duration) - (item.inPoint || 0)) * 1000
-          ]
-        } : undefined,
-        onload: () => {
-          const cue = activeCues.value.get(item.uuid);
-          if (cue) {
-            // Get the actual file duration from Howler
-            const actualFileDuration = howl.duration();
-            
-            // For trimmed items (with sprites), duration should be the trimmed duration
-            // But make sure outPoint doesn't exceed actual file duration
-            const inPoint = item.inPoint || 0;
-            const requestedOutPoint = item.outPoint || item.duration;
-            const actualOutPoint = Math.min(requestedOutPoint, actualFileDuration);
-            
-            // Calculate trimmed duration, ensuring it doesn't exceed file bounds
-            const trimmedDuration = actualOutPoint - inPoint;
-            
-            cue.duration = trimmedDuration;
-            
-            // Update the outPoint in cue state to reflect actual file bounds
-            cue.outPoint = actualOutPoint;
-            
-            // Start progress tracking (same as playCue)
-            cue.progressInterval = setInterval(() => {
-              if (!activeCues.value.has(item.uuid)) {
-                clearInterval(cue.progressInterval);
-                return;
-              }
-              
-              const absoluteTime = howl.seek() as number;
-              const inPoint = item.inPoint || 0;
-              const currentTime = absoluteTime - inPoint;
-              
-              // Check if playback has reached or exceeded the actual file duration.
-              // Skip for looping items — Howler handles the loop; the interval
-              // firing near duration would otherwise incorrectly stop the track.
-              const actualFileDuration = howl.duration();
-              if (item.endBehavior.action !== 'loop' &&
-                  (absoluteTime >= actualFileDuration || absoluteTime >= (cue.outPoint || item.duration))) {
-                howl.stop();
-                clearInterval(cue.progressInterval);
-                activeCues.value.delete(item.uuid);
-                restoreDuckedVolumes(item.uuid);
+      const howl = setupCueForPlayback(item, 0);
 
-                const parentGroup = findParentGroup(item.uuid);
-                if (parentGroup) {
-                  const groupState = activeGroups.value.get(parentGroup.uuid);
-                  if (groupState) {
-                    const itemIndex = groupState.playbackChain.indexOf(item.uuid);
-                    if (itemIndex === groupState.playbackChain.length - 1) {
-                      stopGroupTracking(parentGroup.uuid);
-                    }
-                  }
-                }
-
-                handleEndBehavior(item);
-                return;
-              }
-              
-              cue.currentTime = Math.max(0, Math.min(currentTime, cue.duration));
-              
-              updateAudioLevels();
-              
-              const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
-              const timeRemaining = cue.duration - cue.currentTime;
-              
-              // Handle crossfade for this track too
-              if (!isCartItem && item.crossFade && item.crossFade > 0 && !cue.crossFadeTriggered) {
-                if (timeRemaining <= item.crossFade) {
-                  cue.crossFadeTriggered = true;
-                  const currentVol = howl.volume();
-                  howl.fade(currentVol, 0, item.crossFade * 1000);
-                  
-                  let nextItem: AudioItem | null = null;
-                  const behavior = item.endBehavior;
-                  
-                  if (behavior.action === 'next') {
-                    nextItem = getNextItem(item.index);
-                  } else if (behavior.action === 'goto-item' && behavior.targetUuid) {
-                    const targetItem = findItemByUuid(behavior.targetUuid);
-                    if (targetItem && targetItem.type === 'audio') {
-                      nextItem = targetItem as AudioItem;
-                    }
-                  } else if (behavior.action === 'goto-index' && behavior.targetIndex) {
-                    const targetItem = findItemByIndex(behavior.targetIndex);
-                    if (targetItem && targetItem.type === 'audio') {
-                      nextItem = targetItem as AudioItem;
-                    }
-                  }
-                  
-                  if (nextItem) {
-                    startCrossfadeTrack(nextItem, item.crossFade);
-                  }
-                }
-              }
-              else if (!isCartItem && item.stopFade && item.stopFade > 0 && !cue.stopFadeTriggered) {
-                if (timeRemaining <= item.stopFade) {
-                  cue.stopFadeTriggered = true;
-                  const currentVol = howl.volume();
-                  howl.fade(currentVol, 0, item.stopFade * 1000);
-                }
-              }
-              
-              const parentGroup = findParentGroup(item.uuid);
-              if (parentGroup) {
-                const groupState = activeGroups.value.get(parentGroup.uuid);
-                if (groupState) {
-                  let accumulatedTime = 0;
-                  for (let i = 0; i < groupState.currentItemIndex; i++) {
-                    const uuid = groupState.playbackChain[i];
-                    const prevItem = findItemByUuid(uuid);
-                    if (prevItem && prevItem.type === 'audio') {
-                      const audioItem = prevItem as AudioItem;
-                      accumulatedTime += audioItem.outPoint - audioItem.inPoint;
-                    }
-                  }
-                  groupState.currentTime = accumulatedTime + currentTime;
-                }
-              }
-            }, 100);
-          }
-        },
-        onend: () => {
-          const cue = activeCues.value.get(item.uuid);
-          
-          if (item.endBehavior.action !== 'loop') {
-            if (cue && cue.progressInterval) {
-              clearInterval(cue.progressInterval);
-            }
-            activeCues.value.delete(item.uuid);
-            restoreDuckedVolumes(item.uuid);
-            
-            const parentGroup = findParentGroup(item.uuid);
-            if (parentGroup) {
-              const groupState = activeGroups.value.get(parentGroup.uuid);
-              if (groupState) {
-                const itemIndex = groupState.playbackChain.indexOf(item.uuid);
-                if (itemIndex === groupState.playbackChain.length - 1) {
-                  stopGroupTracking(parentGroup.uuid);
-                }
-              }
-            }
-            
-            handleEndBehavior(item);
-          }
-        },
-        onloaderror: (id, error) => {
-          console.error('Error loading audio:', error);
-          activeCues.value.delete(item.uuid);
-        },
-        onplayerror: (id, error) => {
-          console.error('Error playing audio:', error);
-          activeCues.value.delete(item.uuid);
-        }
-      });
-
-      // Create active cue state
-      const activeCue: ActiveCueState = {
-        uuid: item.uuid,
-        displayName: item.displayName,
-        currentTime: 0,
-        duration: item.inPoint || item.outPoint 
-          ? (item.outPoint || item.duration) - (item.inPoint || 0)
-          : item.duration,
-        volume: applyVolumeOffset(item.volume),
-        isDucked: false,
-        isPaused: false,
-        originalVolume: applyVolumeOffset(item.volume),
-        duckedBy: new Set<string>(),
-        howl,
-        color: item.color,
-        inPoint: item.inPoint,
-        outPoint: item.outPoint,
-        currentLevel: -60,
-        peakLevel: -60
-      };
-
-      activeCues.value.set(item.uuid, activeCue);
-
-      // Apply ducking before playback
-      applyDucking(item.uuid, item.duckingBehavior);
-      updateGroupProgress(item.uuid);
-
-      // Start playback and fade in (ignoring item's playFade, use crossfade duration)
-      if (item.inPoint || item.outPoint) {
-        howl.play('main');
-      } else {
-        howl.play();
-      }
-      
-      // Fade in to target volume over crossfade duration
+      playHowl(howl, item);
       howl.fade(0, applyVolumeOffset(item.volume), crossfadeDuration * 1000);
 
-      // Handle start behavior
       handleStartBehavior(item);
       scheduleCustomActions(item);
-
     } catch (error) {
       console.error('Error starting crossfade track:', error);
+      activeCues.value.delete(item.uuid);
     }
   };
 
