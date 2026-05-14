@@ -1,6 +1,7 @@
 <template>
   <div id="app" :data-theme="theme">
     <WelcomeScreen v-if="!currentProject" />
+    <MinimalWorkspace v-else-if="isMinimalMode" @exit-minimal="toggleMinimalMode" />
     <MainWorkspace v-else />
     
     <!-- Accent Color Picker Modal -->
@@ -63,7 +64,7 @@ const { currentLocale, getDirection } = useLocalization();
 useStateViewer();
 
 // Composables
-const { theme, showColorPicker, showAboutModal, registerListeners: registerMenuListeners } = useMenuListeners();
+const { theme, showColorPicker, showAboutModal, isMinimalMode, toggleMinimalMode, registerListeners: registerMenuListeners } = useMenuListeners();
 const { progressModal, showProjectSelection, availableProjects, handleProjectSelection, handleProjectSelectionCancel, registerListeners: registerImportExportListeners } = useImportExport();
 const { showUpdateModal, updateInfo, registerListeners: registerUpdateListeners } = useUpdateChecker();
 

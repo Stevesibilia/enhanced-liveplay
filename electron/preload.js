@@ -89,6 +89,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuChangeAccentColor: (callback) => ipcRenderer.on('menu-change-accent-color', callback),
   onMenuChangeLanguage: (callback) => ipcRenderer.on('menu-change-language', callback),
   onMenuShowAbout: (callback) => ipcRenderer.on('menu-show-about', callback),
+  onMenuToggleMinimalMode: (callback) => ipcRenderer.on('menu-toggle-minimal-mode', callback),
+
+  // Minimal mode
+  enterMinimalMode: () => ipcRenderer.invoke('enter-minimal-mode'),
+  exitMinimalMode: () => ipcRenderer.invoke('exit-minimal-mode'),
 
   // External links
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

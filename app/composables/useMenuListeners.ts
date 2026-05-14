@@ -2,7 +2,7 @@ import type { Project } from '~/types/project';
 
 /**
  * Registers IPC listeners for application menu actions (theme toggle,
- * accent color, language, about, open-project-file).
+ * accent color, language, about, open-project-file, minimal mode).
  */
 export const useMenuListeners = () => {
   const { currentProject, saveProject, openProject } = useProject();
@@ -11,6 +11,17 @@ export const useMenuListeners = () => {
 
   const showColorPicker = ref(false);
   const showAboutModal = ref(false);
+  const isMinimalMode = ref(false);
+
+  const toggleMinimalMode = async () => {
+    if (!import.meta.client || !window.electronAPI) return;
+    isMinimalMode.value = !isMinimalMode.value;
+    if (isMinimalMode.value) {
+      await window.electronAPI.enterMinimalMode();
+    } else {
+      await window.electronAPI.exitMinimalMode();
+    }
+  };
 
   const registerListeners = () => {
     if (!import.meta.client || !window.electronAPI) return;
@@ -35,6 +46,10 @@ export const useMenuListeners = () => {
       showAboutModal.value = true;
     });
 
+    window.electronAPI.onMenuToggleMinimalMode(() => {
+      toggleMinimalMode();
+    });
+
     window.electronAPI.onOpenProjectFile((_event, data) => {
       try {
         currentProject.value = data.projectData as Project;
@@ -52,6 +67,8 @@ export const useMenuListeners = () => {
     theme,
     showColorPicker,
     showAboutModal,
+    isMinimalMode,
+    toggleMinimalMode,
     registerListeners,
   };
 };
