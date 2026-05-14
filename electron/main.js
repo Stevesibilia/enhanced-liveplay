@@ -918,6 +918,14 @@ function createMenu(locale = 'en', isDev = false) {
         },
         { type: 'separator' },
         {
+          label: 'Minimal Mode',
+          accelerator: 'CmdOrCtrl+M',
+          click: () => {
+            mainWindow.webContents.send('menu-toggle-minimal-mode');
+          }
+        },
+        { type: 'separator' },
+        {
           label: t.language,
           submenu: Object.values(localeFiles).map((localeData) => ({
             label: localeData._metadata.nativeName,
@@ -1426,6 +1434,33 @@ ipcMain.on('update-app-state', (event, state) => {
 // Check if dev mode is enabled
 ipcMain.handle('is-dev-mode', () => {
   return isDevMode;
+});
+
+// Minimal mode — save bounds, resize, always-on-top
+let savedBounds = null;
+
+ipcMain.handle('enter-minimal-mode', () => {
+  if (!mainWindow) return;
+  savedBounds = mainWindow.getBounds();
+  mainWindow.setMinimumSize(200, 100);
+  mainWindow.setResizable(false);
+  mainWindow.setResizable(true);
+  mainWindow.setMenuBarVisibility(false);
+  setTimeout(() => {
+    if (mainWindow) mainWindow.setSize(420, 340);
+  }, 200);
+});
+
+ipcMain.handle('exit-minimal-mode', () => {
+  if (!mainWindow) return;
+  mainWindow.setAlwaysOnTop(false);
+  mainWindow.setMenuBarVisibility(true);
+  mainWindow.setMinimumSize(1200, 700);
+  mainWindow.setMaximumSize(0, 0); // Unrestricted in full mode
+  if (savedBounds) {
+    mainWindow.setBounds(savedBounds);
+    savedBounds = null;
+  }
 });
 
 // Check FFmpeg availability
