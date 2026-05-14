@@ -186,8 +186,8 @@ export const useAudioEngine = () => {
 
     const isCartItem = item.index && item.index.length > 0 && item.index[0] === -1;
 
-    // Crossfade trigger (non-cart, crossFade > 0)
-    if (!isCartItem && item.crossFade && item.crossFade > 0) {
+    // Crossfade trigger (non-cart, non-looping, crossFade > 0)
+    if (!isCartItem && item.endBehavior.action !== 'loop' && item.crossFade && item.crossFade > 0) {
       const crossFadeAtMs = (trimmedDuration - item.crossFade) * 1000;
       cue.crossFadeAtMs = crossFadeAtMs;
 
@@ -225,8 +225,8 @@ export const useAudioEngine = () => {
         }, delayMs);
       }
     }
-    // Stop-fade trigger (non-cart, stopFade > 0, no effective crossfade)
-    else if (!isCartItem && item.stopFade && item.stopFade > 0) {
+    // Stop-fade trigger (non-cart, non-looping, stopFade > 0, no effective crossfade)
+    else if (!isCartItem && item.endBehavior.action !== 'loop' && item.stopFade && item.stopFade > 0) {
       const stopFadeAtMs = (trimmedDuration - item.stopFade) * 1000;
       cue.stopFadeAtMs = stopFadeAtMs;
 
