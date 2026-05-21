@@ -132,7 +132,7 @@ const props = defineProps<{
 
 const slotRef = ref<HTMLElement | null>(null);
 
-const { currentProject, findItemByUuid, triggerWaveformUpdate } = useProject();
+const { currentProject, findItemByUuid, triggerWaveformUpdate, selectedItem, selectedItems } = useProject();
 const { playCue, stopCue, activeCues } = useAudioEngine();
 const { t } = useLocalization();
 const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem } = useCartItems();
@@ -372,6 +372,12 @@ const generateWaveformForItem = async (item: AudioItem) => {
 const handlePlay = () => {
   if (!props.item) return;
   playCue(props.item);
+
+  if (selectedItem.value !== null) {
+    selectedItems.value.clear();
+    selectedItems.value.add(props.item.uuid);
+    selectedItem.value = props.item;
+  }
 };
 
 const handleStop = () => {
@@ -396,17 +402,9 @@ const handleDelete = () => {
 
 const handleEdit = () => {
   if (!props.item) return;
-  
-  // Open properties panel for this item
-  const { selectedItem, selectedItems } = useProject();
-  
-  // Clear multi-selection from playlist
+
   selectedItems.value.clear();
-  
-  // Add this cart item to selection
   selectedItems.value.add(props.item.uuid);
-  
-  // Select this cart item
   selectedItem.value = props.item;
 };
 
