@@ -78,7 +78,7 @@ let mounted = false;
 export const useMidiController = () => {
   const { getCartItem } = useCartItems();
   const { playCue, stopCue, pauseCue, resumeCue, stopAllCues, activeCues, setMasterGain } = useAudioEngine();
-  const { selectedItem, saveProject } = useProject();
+  const { selectedItem, selectedItems, saveProject } = useProject();
 
   /**
    * Dispatch a discrete action.
@@ -97,6 +97,11 @@ export const useMidiController = () => {
         }
       } else {
         playCue(item);
+        if (selectedItem.value !== null) {
+          selectedItems.value.clear();
+          selectedItems.value.add(item.uuid);
+          selectedItem.value = item;
+        }
       }
       return;
     }

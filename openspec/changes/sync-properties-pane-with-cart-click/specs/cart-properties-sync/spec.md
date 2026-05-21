@@ -31,12 +31,29 @@ When a cart click syncs the properties pane, the selection update SHALL mirror t
 - **THEN** `selectedItems` is cleared and contains only the cart item's uuid
 - **AND** `selectedItem` is the cart's audio item
 
-### Requirement: MIDI and keyboard cart triggers do not sync the pane
+### Requirement: MIDI and keyboard cart triggers sync the pane when open
 
-Cart triggers fired by MIDI input or keyboard hotkeys SHALL NOT update `selectedItem`. Only direct pointer clicks on a cart slot, with the properties pane already open, sync the pane.
+Cart triggers fired by MIDI input or keyboard hotkeys SHALL update `selectedItem` to the triggered cart's audio item when the properties pane is already open, mirroring the click-sync behavior. When the pane is closed, MIDI and keyboard triggers SHALL NOT mutate selection. Toggle-off (stop) actions on an already-playing cart SHALL NOT sync the pane — only the play branch syncs.
 
-#### Scenario: User triggers a cart via MIDI or keyboard while pane is open
-- **WHEN** the properties pane is open showing a playlist item
-- **AND** the user fires a cart via a MIDI message or a keyboard hotkey
+#### Scenario: User triggers a cart via MIDI while pane is open
+- **WHEN** the properties pane is open
+- **AND** the user fires a cart slot via a MIDI `trigger-slot-*` action that starts playback
 - **THEN** the cart's audio item is played
-- **AND** `selectedItem` is unchanged
+- **AND** `selectedItem` is set to that cart's audio item
+- **AND** `selectedItems` is cleared and contains only that cart's uuid
+
+#### Scenario: User triggers a cart via keyboard hotkey while pane is open
+- **WHEN** the properties pane is open
+- **AND** the user presses a keyboard hotkey mapped to a cart slot that starts playback
+- **THEN** the cart's audio item is played
+- **AND** `selectedItem` is set to that cart's audio item
+
+#### Scenario: User triggers a cart via MIDI or keyboard while pane is closed
+- **WHEN** `selectedItem` is null and the user fires a cart via MIDI or keyboard
+- **THEN** the cart's audio item is played
+- **AND** `selectedItem` remains null
+
+#### Scenario: User toggles off an active cart via MIDI or keyboard
+- **WHEN** a cart is already playing and the user fires the same MIDI or keyboard trigger
+- **THEN** the cart is stopped (existing toggle behavior preserved)
+- **AND** `selectedItem` is unchanged (no sync on the stop branch)

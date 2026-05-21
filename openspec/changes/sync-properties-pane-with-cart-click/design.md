@@ -17,9 +17,9 @@ The asymmetry is intentional for live use — a cart's primary gesture is "fire 
 
 **Non-Goals:**
 - Changing playlist click behavior (already correct).
-- Syncing the pane from MIDI- or keyboard-triggered cart fires (those bypass `handlePlay`).
 - Adding pane sync to `ActiveCueItem` (no select gesture there).
 - Auto-opening the properties pane on cart click when it is closed.
+- Syncing the pane on toggle-off (stopping an already-playing cart) — only the play branch syncs.
 
 ## Decisions
 
@@ -36,6 +36,18 @@ The selection branch clears `selectedItems`, adds the cart uuid, and sets `selec
 
 **Decision: Keep the change in `handlePlay`, not at the call site.**
 `handlePlay` is the single click handler on `slot-header` and the play action button. Adding the gate inside `handlePlay` means both the slot-header click and the explicit play button get the sync behavior, which is the right unification — both are "user pressed play on this cart" gestures.
+
+**Decision: Extend sync to MIDI and keyboard cart triggers, not just clicks.**
+Originally scoped to click-only on the principle that live-show triggers shouldn't disturb the pane. Reversed after user feedback: in practice, when the pane is open you're in inspection mode regardless of how the cart was fired, and pane-open is already the explicit opt-in for sync. Three trigger sites now apply the same gated sync:
+1. `CartSlot.vue` → `handlePlay` (click)
+2. `useCartHotkeys.ts` → `triggerSlot` (keyboard)
+3. `useMidiController.ts` → `dispatchDiscrete` `trigger-slot-*` (MIDI)
+
+Sync only fires on the **play** branch in each site. The toggle-off (stop) branch is left untouched — stopping a cart should not change what the pane shows.
+
+Alternatives considered:
+- *Extract a shared `playCartItem(item)` helper* — cleaner DRY but adds an indirection layer for a 4-line conditional. Three inlined call sites with identical shape are easier to read in context. Rejected for now; revisit if a fourth trigger site appears.
+- *Also sync on stop* — would let the user inspect a cart they just stopped, but conflicts with the more common case of stopping one cart while inspecting another. Rejected.
 
 ## Risks / Trade-offs
 

@@ -86,7 +86,7 @@ export const GLOBAL_ACTIONS: { id: GlobalActionId; label: string; category: stri
 ];
 
 export const useCartHotkeys = () => {
-  const { currentProject, selectedItem, saveProject } = useProject();
+  const { currentProject, selectedItem, selectedItems, saveProject } = useProject();
   const { getCartItem } = useCartItems();
   const { playCue, stopCue, pauseCue, resumeCue, activeCues, stopAllCues, setMasterGain, masterGainDb, setLoopForCue } = useAudioEngine();
 
@@ -122,6 +122,11 @@ export const useCartHotkeys = () => {
       stopCue(item.uuid);
     } else {
       playCue(item);
+      if (selectedItem.value !== null) {
+        selectedItems.value.clear();
+        selectedItems.value.add(item.uuid);
+        selectedItem.value = item;
+      }
     }
   };
 
