@@ -37,3 +37,10 @@ export type MidiActionId =
 export interface MidiConfig {
   bindings: Record<string, MidiBinding>; // actionId → binding
 }
+
+// Player window display state
+export interface DisplayState {
+  type: 'black' | 'image' | 'pdf';
+  mediaPath?: string;     // absolute path for player to load
+  pdfPage?: number;       // 1-indexed page number
+}
