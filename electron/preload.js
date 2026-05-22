@@ -143,5 +143,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Visual media
   importVisualMedia: (projectFolderPath, sourceFilePath, uuid) => ipcRenderer.invoke('import-visual-media', projectFolderPath, sourceFilePath, uuid),
   readVisualMedia: (projectFolderPath, mediaPath) => ipcRenderer.invoke('read-visual-media', projectFolderPath, mediaPath),
-  deleteVisualMedia: (projectFolderPath, mediaPath) => ipcRenderer.invoke('delete-visual-media', projectFolderPath, mediaPath)
+  deleteVisualMedia: (projectFolderPath, mediaPath) => ipcRenderer.invoke('delete-visual-media', projectFolderPath, mediaPath),
+
+  // Player window
+  openPlayerWindow: () => ipcRenderer.invoke('open-player-window'),
+  closePlayerWindow: () => ipcRenderer.invoke('close-player-window'),
+  getPlayerWindowStatus: () => ipcRenderer.invoke('get-player-window-status'),
+  pushToPlayer: (displayState) => ipcRenderer.invoke('push-to-player', displayState),
+  togglePlayerFullscreen: () => ipcRenderer.invoke('toggle-player-fullscreen'),
+  onPlayerWindowStatusChanged: (callback) => ipcRenderer.on('player-window-status-changed', (event, isOpen) => callback(isOpen))
 });

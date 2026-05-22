@@ -1,4 +1,4 @@
-import type { IpcEvent, TriggerItemPayload, StopItemPayload, UpdateInfo, MidiConfig } from './ipc';
+import type { IpcEvent, TriggerItemPayload, StopItemPayload, UpdateInfo, MidiConfig, DisplayState } from './ipc';
 
 export {};
 
@@ -92,6 +92,13 @@ declare global {
       importVisualMedia: (projectFolderPath: string, sourceFilePath: string, uuid: string) => Promise<{ success: boolean; mediaFileName?: string; mediaPath?: string; error?: string }>;
       readVisualMedia: (projectFolderPath: string, mediaPath: string) => Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }>;
       deleteVisualMedia: (projectFolderPath: string, mediaPath: string) => Promise<{ success: boolean; error?: string }>;
+      // Player window
+      openPlayerWindow: () => Promise<{ success: boolean }>;
+      closePlayerWindow: () => Promise<{ success: boolean }>;
+      getPlayerWindowStatus: () => Promise<{ open: boolean }>;
+      pushToPlayer: (displayState: DisplayState) => Promise<{ success: boolean; error?: string }>;
+      togglePlayerFullscreen: () => Promise<{ success: boolean; error?: string }>;
+      onPlayerWindowStatusChanged: (callback: (isOpen: boolean) => void) => void;
     };
   }
 

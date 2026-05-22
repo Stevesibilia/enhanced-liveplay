@@ -194,6 +194,8 @@ let apiServer = null;
 let currentProject = null;
 let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
+let playerWindow = null; // Player display window (second monitor)
+let playerWindowBounds = null; // Session-only bounds persistence
 
 // Guard: resolve a path and verify it lives inside the active project folder.
 // Returns the resolved path on success, or null if outside the project.
@@ -764,6 +766,85 @@ function createStateViewerWindow() {
   });
 }
 
+// Create player window for second-monitor display output
+function createPlayerWindow() {
+  if (playerWindow) {
+    playerWindow.focus();
+    return;
+  }
+
+  const windowOptions = {
+    width: 1280,
+    height: 720,
+    frame: true,
+    backgroundColor: '#000000',
+    title: 'E-LivePlay Player',
+    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload-player.js'),
+      webSecurity: false // Allow loading local file:// images and PDFs
+    },
+    show: false
+  };
+
+  // Restore previous bounds if available (session-only)
+  if (playerWindowBounds) {
+    windowOptions.x = playerWindowBounds.x;
+    windowOptions.y = playerWindowBounds.y;
+    windowOptions.width = playerWindowBounds.width;
+    windowOptions.height = playerWindowBounds.height;
+  }
+
+  playerWindow = new BrowserWindow(windowOptions);
+
+  // Load the player HTML
+  const playerHtmlPath = path.join(__dirname, 'player.html');
+  playerWindow.loadFile(playerHtmlPath);
+
+  playerWindow.once('ready-to-show', () => {
+    playerWindow.show();
+  });
+
+  // Handle F11 for fullscreen toggle in player window
+  playerWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F11' && input.type === 'keyDown') {
+      event.preventDefault();
+      playerWindow.setFullScreen(!playerWindow.isFullScreen());
+      playerWindow.webContents.send('toggle-fullscreen');
+    }
+  });
+
+  playerWindow.on('closed', () => {
+    playerWindow = null;
+  });
+
+  // Notify main renderer that player window opened
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('player-window-status-changed', true);
+  }
+}
+
+function closePlayerWindow() {
+  if (!playerWindow) return;
+
+  // Persist bounds in memory for session restore
+  try {
+    playerWindowBounds = playerWindow.getBounds();
+  } catch (e) {
+    // Window may already be destroyed
+  }
+
+  playerWindow.close();
+  playerWindow = null;
+
+  // Notify main renderer that player window closed
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('player-window-status-changed', false);
+  }
+}
+
 // Translation strings for menu (default: English)
 // Dynamically load all locale files from the locales directory
 function loadLocaleFiles() {
@@ -912,8 +993,15 @@ function createMenu(locale = 'en', isDev = false) {
           label: t.fullscreen,
           accelerator: 'F11',
           click: () => {
-            const isFullScreen = mainWindow.isFullScreen();
-            mainWindow.setFullScreen(!isFullScreen);
+            // Toggle fullscreen on the focused window
+            const focusedWindow = BrowserWindow.getFocusedWindow();
+            if (focusedWindow) {
+              focusedWindow.setFullScreen(!focusedWindow.isFullScreen());
+              // Notify player renderer if it's the player window
+              if (focusedWindow === playerWindow) {
+                playerWindow.webContents.send('toggle-fullscreen');
+              }
+            }
           }
         },
         { type: 'separator' },
@@ -922,6 +1010,18 @@ function createMenu(locale = 'en', isDev = false) {
           accelerator: 'CmdOrCtrl+M',
           click: () => {
             mainWindow.webContents.send('menu-toggle-minimal-mode');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Open/Close Player Window',
+          accelerator: 'CmdOrCtrl+P',
+          click: () => {
+            if (playerWindow) {
+              closePlayerWindow();
+            } else {
+              createPlayerWindow();
+            }
           }
         },
         { type: 'separator' },
@@ -1259,6 +1359,46 @@ ipcMain.handle('delete-visual-media', async (event, projectFolderPath, mediaPath
   } catch (error) {
     console.error('Delete visual media error:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// Player window IPC handlers
+ipcMain.handle('open-player-window', () => {
+  createPlayerWindow();
+  return { success: true };
+});
+
+ipcMain.handle('close-player-window', () => {
+  closePlayerWindow();
+  return { success: true };
+});
+
+ipcMain.handle('get-player-window-status', () => {
+  return { open: !!playerWindow && !playerWindow.isDestroyed() };
+});
+
+ipcMain.handle('push-to-player', (event, displayState) => {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.webContents.send('display-state', displayState);
+    return { success: true };
+  }
+  return { success: false, error: 'Player window not open' };
+});
+
+ipcMain.handle('toggle-player-fullscreen', () => {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.setFullScreen(!playerWindow.isFullScreen());
+    playerWindow.webContents.send('toggle-fullscreen');
+    return { success: true };
+  }
+  return { success: false, error: 'Player window not open' };
+});
+
+// Handle F11 from player renderer
+ipcMain.on('player-toggle-fullscreen', () => {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.setFullScreen(!playerWindow.isFullScreen());
+    playerWindow.webContents.send('toggle-fullscreen');
   }
 });
 
