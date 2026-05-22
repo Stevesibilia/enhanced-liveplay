@@ -106,6 +106,8 @@ export const useProject = () => {
         cartItems: [],
         cartSlotKeys: { ...DEFAULT_CART_SLOT_KEYS },
         cartOnlyItems: [],
+        visualMedia: [],
+        visualFolders: [],
         theme: { ...DEFAULT_THEME },
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString()
@@ -187,6 +189,10 @@ export const useProject = () => {
           
           // Load waveforms from disk asynchronously for all audio items
           loadWaveformsAsync(project);
+          
+          // Validate visual media links (clear stale references)
+          const { validateVisualMediaLinks } = useVisualMedia();
+          validateVisualMediaLinks();
           
           return true;
         }

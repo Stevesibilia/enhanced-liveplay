@@ -64,10 +64,22 @@ function migrateV0ToV1(project: any): void {
   }
 }
 
+function migrateV1ToV2(project: any): void {
+  // Add visualMedia array if missing
+  if (!project.visualMedia) {
+    project.visualMedia = [];
+  }
+  // Add visualFolders array if missing
+  if (!project.visualFolders) {
+    project.visualFolders = [];
+  }
+}
+
 // --- Migration registry ---
 // Index N = migration from version N to N+1
 const migrations: Array<(project: any) => void> = [
   migrateV0ToV1, // 0 → 1
+  migrateV1ToV2, // 1 → 2
 ];
 
 export const CURRENT_SCHEMA_VERSION = migrations.length; // 1

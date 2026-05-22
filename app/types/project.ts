@@ -1,3 +1,39 @@
+// Visual media supported extensions and types
+export const VISUAL_MEDIA_EXTENSIONS = {
+  image: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'],
+  pdf: ['.pdf'],
+} as const;
+
+export const ALL_VISUAL_EXTENSIONS = [
+  ...VISUAL_MEDIA_EXTENSIONS.image,
+  ...VISUAL_MEDIA_EXTENSIONS.pdf,
+];
+
+export type VisualMediaType = 'image' | 'pdf';
+
+/**
+ * Derives the media type from a file extension.
+ * Returns null if the extension is not supported.
+ */
+export function getVisualMediaType(fileName: string): VisualMediaType | null {
+  const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+  if (VISUAL_MEDIA_EXTENSIONS.image.includes(ext as any)) return 'image';
+  if (VISUAL_MEDIA_EXTENSIONS.pdf.includes(ext as any)) return 'pdf';
+  return null;
+}
+
+// Visual media item — lives in project.visualMedia[]
+export interface VisualMediaItem {
+  uuid: string;
+  displayName: string;
+  mediaFileName: string; // filename on disk (e.g., "a1b2c3d4_battle-map.jpg")
+  mediaPath: string; // relative path from project folder (e.g., "media/visuals/a1b2c3d4_battle-map.jpg")
+  mediaType: VisualMediaType;
+  folder?: string; // optional folder tag for organization
+  linkedCueUuid?: string; // optional reference to an AudioItem UUID
+  pdfPage?: number; // optional page number for PDFs
+}
+
 // Base item interface that all items extend from
 export interface BaseItem {
   uuid: string;
@@ -128,6 +164,8 @@ export interface Project {
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
   globalKeyBindings?: GlobalKeyBindings;
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
+  visualMedia: VisualMediaItem[]; // Visual media items (images, PDFs)
+  visualFolders: string[]; // User-defined folder tags for visual media organization
   theme: Theme;
   createdAt: string;
   lastModified: string;

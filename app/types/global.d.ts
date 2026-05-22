@@ -89,6 +89,9 @@ declare global {
       readMidiConfig: () => Promise<MidiConfig>;
       writeMidiConfig: (config: MidiConfig) => Promise<{ success: boolean }>;
       writeClipboardText: (text: string) => Promise<{ success: boolean }>;
+      importVisualMedia: (projectFolderPath: string, sourceFilePath: string, uuid: string) => Promise<{ success: boolean; mediaFileName?: string; mediaPath?: string; error?: string }>;
+      readVisualMedia: (projectFolderPath: string, mediaPath: string) => Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }>;
+      deleteVisualMedia: (projectFolderPath: string, mediaPath: string) => Promise<{ success: boolean; error?: string }>;
     };
   }
 
