@@ -35,4 +35,4 @@
 ## 6. Build Integration
 
 - [x] 6.1 Ensure player window HTML and preload are included in electron-builder output
-- [ ] 6.2 Test window creation in both dev and production builds
+- [x] 6.2 Test window creation in both dev and production builds
