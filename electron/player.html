@@ -15,22 +15,20 @@
       -webkit-user-select: none;
     }
     #display {
+      position: relative;
       width: 100%;
       height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       background: #000;
     }
-    #display img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
+    .layer {
+      position: absolute;
+      overflow: hidden;
     }
-    #display canvas {
-      max-width: 100%;
-      max-height: 100%;
+    .layer img {
+      width: 100%;
+      height: 100%;
       object-fit: contain;
+      display: block;
     }
   </style>
 </head>
@@ -39,7 +37,6 @@
 
   <script>
     const display = document.getElementById('display');
-    let pdfDoc = null;
 
     // F11 fullscreen toggle
     document.addEventListener('keydown', (e) => {
@@ -51,104 +48,74 @@
 
     // Track fullscreen state for CSS
     window.playerAPI.onToggleFullscreen(() => {
-      // Main process toggled fullscreen — update body class
       document.body.classList.toggle('fullscreen');
     });
 
-    function showBlack() {
+    function mediaUrl(absolutePath) {
+      return 'local-media://' + encodeURIComponent(absolutePath).replace(/%2F/g, '/');
+    }
+
+    function clearDisplay() {
       display.innerHTML = '';
     }
 
-    function showImage(mediaPath) {
-      display.innerHTML = '';
+    function makeImageLayer(layer) {
+      const el = document.createElement('div');
+      el.className = 'layer';
+      el.dataset.layerId = layer.id;
+      el.style.left = layer.x + '%';
+      el.style.top = layer.y + '%';
+      el.style.width = layer.width + '%';
+      el.style.height = layer.height + '%';
+      el.style.zIndex = String(layer.zIndex);
+
       const img = document.createElement('img');
-      // Use custom protocol registered in main process
-      img.src = 'local-media://' + encodeURIComponent(mediaPath).replace(/%2F/g, '/');
-      console.log('[Player] Loading image:', img.src);
+      img.src = mediaUrl(layer.mediaPath);
       img.alt = '';
       img.draggable = false;
-      img.onload = () => {
-        console.log('[Player] Image loaded successfully');
+      img.onerror = () => {
+        // Fallback to file:// if local-media protocol fails
+        img.onerror = null;
+        img.src = 'file://' + layer.mediaPath;
       };
-      img.onerror = (e) => {
-        console.error('[Player] Failed to load image:', mediaPath, e);
-        // Fallback: try file:// directly
-        img.onerror = () => { showBlack(); };
-        img.src = 'file://' + mediaPath;
-      };
-      display.appendChild(img);
+      el.appendChild(img);
+      return el;
     }
 
-    async function showPdf(mediaPath, page) {
-      display.innerHTML = '';
-      const pageNum = page || 1;
+    function renderState(state) {
+      console.log('[Player] Received display state:', state);
 
-      try {
-        // Load pdf.js from node_modules
-        if (!window.pdfjsLib) {
-          // pdf.js should be loaded via script tag or require
-          console.error('pdf.js not loaded');
-          showBlack();
-          return;
+      // Backwards compatibility: legacy single-item payload (image only — PDF deferred)
+      if (state && typeof state.type === 'string') {
+        clearDisplay();
+        if (state.type !== 'image' || !state.mediaPath) return;
+        const synthetic = {
+          id: 'legacy',
+          type: 'image',
+          mediaPath: state.mediaPath,
+          x: 0, y: 0, width: 100, height: 100, zIndex: 1,
+        };
+        state = { layers: [synthetic] };
+      }
+
+      clearDisplay();
+
+      const layers = Array.isArray(state?.layers) ? state.layers : [];
+      if (layers.length === 0) return;
+
+      const sorted = [...layers].sort((a, b) => a.zIndex - b.zIndex);
+      for (const layer of sorted) {
+        if (layer.type === 'image') {
+          display.appendChild(makeImageLayer(layer));
         }
-
-        const loadingTask = window.pdfjsLib.getDocument('local-media://' + encodeURIComponent(mediaPath).replace(/%2F/g, '/'));
-        pdfDoc = await loadingTask.promise;
-
-        const pdfPage = await pdfDoc.getPage(pageNum);
-
-        // Scale to fit the display area
-        const displayRect = display.getBoundingClientRect();
-        const unscaledViewport = pdfPage.getViewport({ scale: 1 });
-        const scaleX = displayRect.width / unscaledViewport.width;
-        const scaleY = displayRect.height / unscaledViewport.height;
-        const scale = Math.min(scaleX, scaleY);
-
-        const viewport = pdfPage.getViewport({ scale });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-
-        await pdfPage.render({ canvasContext: context, viewport }).promise;
-        display.appendChild(canvas);
-      } catch (error) {
-        console.error('Failed to render PDF:', error);
-        showBlack();
+        // Other types are ignored for now.
       }
     }
 
-    // Listen for display state changes from main process
-    window.playerAPI.onDisplayState((state) => {
-      console.log('[Player] Received display state:', JSON.stringify(state));
-      if (!state || state.type === 'black') {
-        showBlack();
-      } else if (state.type === 'image') {
-        showImage(state.mediaPath);
-      } else if (state.type === 'pdf') {
-        showPdf(state.mediaPath, state.pdfPage);
-      }
-    });
+    window.playerAPI.onDisplayState(renderState);
 
     // Start in black state
-    showBlack();
-  </script>
-
-  <!-- pdf.js loaded dynamically from node_modules -->
-  <script>
-    // Load pdf.js using path from preload
-    (async function() {
-      try {
-        const pdfjsPath = window.playerAPI.getPdfjsPath();
-        const workerPath = window.playerAPI.getPdfjsWorkerPath();
-        const pdfjs = await import('file://' + pdfjsPath);
-        window.pdfjsLib = pdfjs;
-        pdfjs.GlobalWorkerOptions.workerSrc = 'file://' + workerPath;
-        console.log('pdf.js loaded successfully');
-      } catch (err) {
-        console.warn('pdf.js not available:', err.message);
-      }
-    })();
+    clearDisplay();
   </script>
 </body>
 </html>

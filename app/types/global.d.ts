@@ -1,4 +1,4 @@
-import type { IpcEvent, TriggerItemPayload, StopItemPayload, UpdateInfo, MidiConfig, DisplayState } from './ipc';
+import type { IpcEvent, TriggerItemPayload, StopItemPayload, UpdateInfo, MidiConfig, DisplayState, PlayerDisplayState } from './ipc';
 
 export {};
 
@@ -97,7 +97,7 @@ declare global {
       openPlayerWindow: () => Promise<{ success: boolean }>;
       closePlayerWindow: () => Promise<{ success: boolean }>;
       getPlayerWindowStatus: () => Promise<{ open: boolean }>;
-      pushToPlayer: (displayState: DisplayState) => Promise<{ success: boolean; error?: string }>;
+      pushToPlayer: (displayState: PlayerDisplayState | DisplayState) => Promise<{ success: boolean; error?: string }>;
       togglePlayerFullscreen: () => Promise<{ success: boolean; error?: string }>;
       onPlayerWindowStatusChanged: (callback: (isOpen: boolean) => void) => void;
     };

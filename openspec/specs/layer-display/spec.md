@@ -1,18 +1,33 @@
-## ADDED Requirements
+## Purpose
+
+Multi-layer composition workspace: drag or push image items from the media library as layers, free-position and resize them, and publish individual layers (or all of them) to the player window.
+
+## Requirements
+
+### Requirement: Supported layer media
+For v1, only image media items SHALL be addable as layers. PDF media items remain in the library and are selectable, but cannot be added as layers (the push button and drag-drop SHALL be no-ops for PDFs).
+
+#### Scenario: PDF push is a no-op
+- **WHEN** the GM clicks the push button on a PDF media library item
+- **THEN** no layer SHALL be created and the composition workspace SHALL remain unchanged
+
+#### Scenario: PDF drag is a no-op
+- **WHEN** the GM drags a PDF media library item into the composition workspace
+- **THEN** no layer SHALL be created and the composition workspace SHALL remain unchanged
 
 ### Requirement: Add layer to composition
-The system SHALL allow the GM to add a media library item to the composition workspace as a new layer. Items can be added by clicking the push button on the item or by dragging it into the workspace.
+The system SHALL allow the GM to add an image media library item to the composition workspace as a new layer. Items can be added by clicking the push button on the item or by dragging it into the workspace.
 
 #### Scenario: Push button adds layer
-- **WHEN** the GM clicks the push button on a media library item
-- **THEN** a new layer SHALL appear in the composition workspace with that item, positioned at center, at a default size (50% width, maintaining aspect ratio)
+- **WHEN** the GM clicks the push button on an image media library item
+- **THEN** a new layer SHALL appear in the composition workspace with that item, positioned at center, at a default size (50% width, then auto-fitted to the image's natural aspect ratio once loaded)
 
 #### Scenario: Drag item into workspace
-- **WHEN** the GM drags a media library item into the composition workspace
+- **WHEN** the GM drags an image media library item into the composition workspace
 - **THEN** a new layer SHALL appear at the drop position with a default size
 
 #### Scenario: Add same item multiple times
-- **WHEN** the GM pushes the same media library item again
+- **WHEN** the GM pushes the same image media library item again
 - **THEN** a new separate layer SHALL be created (not replacing the existing one)
 
 ### Requirement: Layer positioning

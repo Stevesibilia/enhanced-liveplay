@@ -1,13 +1,28 @@
 <template>
-  <div class="media-library-item" :class="{ selected, live: isLive }" @click="$emit('select')" @contextmenu.prevent="$emit('contextmenu', $event)">
+  <div
+    class="media-library-item"
+    :class="{ selected }"
+    draggable="true"
+    @click="$emit('select')"
+    @dragstart="onDragStart"
+  >
     <div class="thumbnail">
       <img v-if="item.mediaType === 'image' && thumbnailSrc" :src="thumbnailSrc" :alt="item.displayName" />
       <div v-else class="pdf-icon">
         <span class="material-symbols-rounded">picture_as_pdf</span>
       </div>
-      <button class="push-btn" @click.stop="$emit('push')" title="Push to player">
-        <span class="material-symbols-rounded">send</span>
-      </button>
+
+      <div class="action-row">
+        <button class="thumb-btn" @click.stop="$emit('properties')" title="Properties">
+          <span class="material-symbols-rounded">settings</span>
+        </button>
+        <button class="thumb-btn push" @click.stop="$emit('push')" title="Add to composition">
+          <span class="material-symbols-rounded">add</span>
+        </button>
+        <button class="thumb-btn danger" @click.stop="$emit('delete')" title="Delete">
+          <span class="material-symbols-rounded">delete</span>
+        </button>
+      </div>
     </div>
     <div class="item-name" :title="item.displayName">{{ item.displayName }}</div>
   </div>
@@ -19,14 +34,20 @@ import type { VisualMediaItem } from '~/types/project';
 const props = defineProps<{
   item: VisualMediaItem;
   selected?: boolean;
-  isLive?: boolean;
 }>();
 
 defineEmits<{
   select: [];
-  contextmenu: [event: MouseEvent];
   push: [];
+  properties: [];
+  delete: [];
 }>();
+
+const onDragStart = (e: DragEvent) => {
+  if (!e.dataTransfer) return;
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('application/x-visual-media-uuid', props.item.uuid);
+};
 
 const { currentProject } = useProject();
 
@@ -64,7 +85,7 @@ watch(() => props.item.mediaPath, loadThumbnail);
   &:hover {
     background-color: var(--color-surface-hover);
 
-    .push-btn {
+    .action-row {
       opacity: 1;
     }
   }
@@ -73,13 +94,6 @@ watch(() => props.item.mediaPath, loadThumbnail);
     background-color: rgba(218, 30, 40, 0.15);
     outline: 2px solid var(--color-accent);
     border-radius: 4px;
-  }
-
-  &.live {
-    .thumbnail {
-      border-color: #4caf50;
-      box-shadow: 0 0 6px rgba(76, 175, 80, 0.4);
-    }
   }
 }
 
@@ -102,29 +116,55 @@ watch(() => props.item.mediaPath, loadThumbnail);
   }
 }
 
-.push-btn {
+.action-row {
   position: absolute;
-  bottom: 4px;
+  left: 4px;
   right: 4px;
-  width: 24px;
-  height: 24px;
+  bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  pointer-events: none;
+
+  .thumb-btn {
+    pointer-events: auto;
+  }
+}
+
+.thumb-btn {
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: 4px;
-  background-color: var(--color-accent);
-  color: white;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
 
   .material-symbols-rounded {
     font-size: 14px;
   }
 
   &:hover {
-    transform: scale(1.1);
+    background-color: rgba(0, 0, 0, 0.85);
+    transform: scale(1.08);
+  }
+
+  &.push {
+    background-color: var(--color-accent);
+
+    &:hover {
+      background-color: var(--color-accent-hover, var(--color-accent));
+    }
+  }
+
+  &.danger:hover {
+    background-color: var(--color-danger, #e53935);
   }
 }
 

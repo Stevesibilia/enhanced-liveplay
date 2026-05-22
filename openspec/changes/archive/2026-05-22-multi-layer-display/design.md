@@ -1,11 +1,11 @@
 ## Context
 
-The player window currently displays a single visual item at a time (image or PDF page). The GM pushes one item and it replaces whatever was showing. The new flow introduces a composition workspace in the main window where the GM arranges multiple items as layers before publishing them to the player.
+The player window currently displays a single visual item at a time. The GM pushes one item and it replaces whatever was showing. The new flow introduces a composition workspace in the main window where the GM arranges multiple items as layers before publishing them to the player.
 
 Current architecture:
-- `DisplayState`: `{ type: 'black' | 'image' | 'pdf', mediaPath?, pdfPage? }`
+- `DisplayState`: `{ type: 'black' | 'image', mediaPath? }` (legacy; PDF support was present but is now deferred)
 - `pushToPlayer(displayState)` sends a single state to the player via IPC
-- Player renders one item (img element or canvas for PDF)
+- Player renders one item (img element)
 
 The LiveDisplayPanel currently shows a single live thumbnail. It needs to become an interactive composition workspace.
 
@@ -21,9 +21,10 @@ The LiveDisplayPanel currently shows a single live thumbnail. It needs to become
 - Player renders all published layers in z-order with correct positioning
 
 **Non-Goals:**
+- **PDF layers (deferred)** — workspace rendering for PDFs did not behave as intended, so the v1 layer model is image-only. PDF media items remain in the library and can be selected, but cannot be added as layers.
 - Animations or transitions between states (future)
 - Layer opacity/blending modes (future)
-- Text layers or shapes (future — only media library items)
+- Text layers or shapes (future — only image media library items)
 - Undo/redo of layer operations (future)
 - Saving compositions as reusable presets (future)
 
@@ -42,9 +43,10 @@ interface DisplayLayer {
   height: number;      // percentage of container height
   zIndex: number;      // stacking order
   published: boolean;  // visible to players?
-  pdfPage?: number;    // for PDFs
 }
 ```
+
+(PDF layers are deferred — see Non-Goals.)
 
 Using percentages instead of pixels ensures the composition scales to any player window size.
 
@@ -74,9 +76,8 @@ interface PlayerDisplayState {
 
 interface PublishedLayer {
   id: string;
-  type: 'image' | 'pdf';
+  type: 'image';          // PDF deferred — only image layers for now
   mediaPath: string;      // absolute path
-  pdfPage?: number;
   x: number;
   y: number;
   width: number;
@@ -91,7 +92,7 @@ Full state sync is simpler than incremental add/remove commands — no state dri
 
 **4. Player rendering: CSS absolute positioning**
 
-Player window renders layers as absolutely-positioned elements within a relative container. Each layer is an `<img>` or `<canvas>` (for PDFs) with percentage-based `left`, `top`, `width`, `height`.
+Player window renders layers as absolutely-positioned elements within a relative container. Each layer is an `<img>` (PDF layers are deferred) with percentage-based `left`, `top`, `width`, `height`.
 
 ```html
 <div id="display" style="position: relative; width: 100%; height: 100%;">
@@ -100,7 +101,7 @@ Player window renders layers as absolutely-positioned elements within a relative
 </div>
 ```
 
-*Alternative considered*: Canvas-based rendering — rejected because it's more complex, loses browser image scaling quality, and makes PDF rendering harder.
+*Alternative considered*: Canvas-based rendering — rejected because it's more complex and loses browser image scaling quality.
 
 **5. Composition workspace interaction model**
 

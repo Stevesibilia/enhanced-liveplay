@@ -1,5 +1,7 @@
 // IPC payload types — shared between global.d.ts and consumer code
 
+import type { VisualMediaItem } from './project';
+
 /** Minimal type for IPC event parameter (avoids importing Electron types in renderer) */
 export type IpcEvent = { sender: unknown; ports: readonly unknown[] };
 
@@ -38,9 +40,43 @@ export interface MidiConfig {
   bindings: Record<string, MidiBinding>; // actionId → binding
 }
 
-// Player window display state
+// Player window display state — legacy single-item shape, retained for the
+// player.html message handler that still understands { type: 'black' } as a
+// black-screen signal. The active multi-layer protocol uses PlayerDisplayState.
 export interface DisplayState {
   type: 'black' | 'image' | 'pdf';
-  mediaPath?: string;     // absolute path for player to load
-  pdfPage?: number;       // 1-indexed page number
+  mediaPath?: string;
+  pdfPage?: number;
+}
+
+// Multi-layer composition types
+
+// A layer in the GM composition workspace (includes drafts).
+// PDF support is deferred — layers are images only for now.
+export interface DisplayLayer {
+  id: string;              // unique layer id (uuid)
+  mediaItem: VisualMediaItem;
+  x: number;               // 0-100, percentage of container width (top-left)
+  y: number;               // 0-100, percentage of container height (top-left)
+  width: number;           // 0-100, percentage of container width
+  height: number;          // 0-100, percentage of container height
+  zIndex: number;
+  published: boolean;
+}
+
+// A layer in the player-bound payload (only published ones, absolute paths)
+export interface PublishedLayer {
+  id: string;
+  type: 'image';
+  mediaPath: string;       // absolute filesystem path
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex: number;
+}
+
+// Full state pushed to the player window on every change
+export interface PlayerDisplayState {
+  layers: PublishedLayer[]; // sorted by zIndex ascending; empty = black
 }

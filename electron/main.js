@@ -1397,6 +1397,9 @@ ipcMain.handle('get-player-window-status', () => {
   return { open: !!playerWindow && !playerWindow.isDestroyed() };
 });
 
+// Accepts a PlayerDisplayState payload: { layers: PublishedLayer[] }.
+// (Legacy single-item payloads are no longer emitted by the renderer; the
+// player.html handler keeps a compatibility branch for safety.)
 ipcMain.handle('push-to-player', (event, displayState) => {
   if (playerWindow && !playerWindow.isDestroyed()) {
     playerWindow.webContents.send('display-state', displayState);
