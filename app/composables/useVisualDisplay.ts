@@ -25,7 +25,9 @@ export const useVisualDisplay = () => {
   };
 
   const pushLive = (item?: VisualMediaItem | null) => {
-    liveItem.value = item ?? stagedItem.value;
+    const source = item ?? stagedItem.value;
+    // Clone to ensure reactivity triggers (different object reference)
+    liveItem.value = source ? { ...source } : null;
   };
 
   const clearAll = () => {

@@ -1,10 +1,13 @@
 <template>
-  <div class="media-library-item" :class="{ selected }" @click="$emit('select')" @contextmenu.prevent="$emit('contextmenu', $event)">
+  <div class="media-library-item" :class="{ selected, live: isLive }" @click="$emit('select')" @contextmenu.prevent="$emit('contextmenu', $event)">
     <div class="thumbnail">
       <img v-if="item.mediaType === 'image' && thumbnailSrc" :src="thumbnailSrc" :alt="item.displayName" />
       <div v-else class="pdf-icon">
         <span class="material-symbols-rounded">picture_as_pdf</span>
       </div>
+      <button class="push-btn" @click.stop="$emit('push')" title="Push to player">
+        <span class="material-symbols-rounded">send</span>
+      </button>
     </div>
     <div class="item-name" :title="item.displayName">{{ item.displayName }}</div>
   </div>
@@ -16,11 +19,13 @@ import type { VisualMediaItem } from '~/types/project';
 const props = defineProps<{
   item: VisualMediaItem;
   selected?: boolean;
+  isLive?: boolean;
 }>();
 
 defineEmits<{
   select: [];
   contextmenu: [event: MouseEvent];
+  push: [];
 }>();
 
 const { currentProject } = useProject();
@@ -58,12 +63,23 @@ watch(() => props.item.mediaPath, loadThumbnail);
 
   &:hover {
     background-color: var(--color-surface-hover);
+
+    .push-btn {
+      opacity: 1;
+    }
   }
 
   &.selected {
     background-color: rgba(218, 30, 40, 0.15);
     outline: 2px solid var(--color-accent);
     border-radius: 4px;
+  }
+
+  &.live {
+    .thumbnail {
+      border-color: #4caf50;
+      box-shadow: 0 0 6px rgba(76, 175, 80, 0.4);
+    }
   }
 }
 
@@ -77,11 +93,38 @@ watch(() => props.item.mediaPath, loadThumbnail);
   overflow: hidden;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
+  position: relative;
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+}
+
+.push-btn {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--color-accent);
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+
+  .material-symbols-rounded {
+    font-size: 14px;
+  }
+
+  &:hover {
+    transform: scale(1.1);
   }
 }
 

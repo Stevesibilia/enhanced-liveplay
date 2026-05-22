@@ -7,14 +7,17 @@
     :class="{ 'drag-active': isDragging }"
   >
     <!-- Folder Sidebar -->
-    <div class="folder-sidebar">
+    <div class="folder-sidebar" :class="{ collapsed: folderSidebarCollapsed }">
       <div class="sidebar-header">
-        <span class="sidebar-title">Folders</span>
-        <button class="icon-btn" @click="showNewFolderDialog" title="New Folder">
+        <span v-if="!folderSidebarCollapsed" class="sidebar-title">Folders</span>
+        <button class="icon-btn" @click="folderSidebarCollapsed = !folderSidebarCollapsed" :title="folderSidebarCollapsed ? 'Show folders' : 'Hide folders'">
+          <span class="material-symbols-rounded">{{ folderSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</span>
+        </button>
+        <button v-if="!folderSidebarCollapsed" class="icon-btn" @click="showNewFolderDialog" title="New Folder">
           <span class="material-symbols-rounded">create_new_folder</span>
         </button>
       </div>
-      <ul class="folder-list">
+      <ul v-if="!folderSidebarCollapsed" class="folder-list">
         <li
           class="folder-item"
           :class="{ active: selectedFolder === null }"
@@ -77,7 +80,9 @@
           :key="item.uuid"
           :item="item"
           :selected="selectedItemId === item.uuid"
+          :is-live="liveItem?.uuid === item.uuid && !isLiveBlack"
           @select="selectItem(item)"
+          @push="pushItem(item)"
           @contextmenu="showItemContextMenu($event, item)"
         />
       </div>
@@ -195,7 +200,7 @@ import { getVisualMediaType } from '~/types/project';
 
 const { currentProject } = useProject();
 const { addVisualMedia, removeVisualMedia, updateVisualMedia, addVisualFolder, removeVisualFolder } = useVisualMedia();
-const { selectItem: visualDisplaySelect } = useVisualDisplay();
+const { selectItem: visualDisplaySelect, liveItem, pushLive } = useVisualDisplay();
 
 // --- State ---
 const selectedFolder = ref<string | null>(null);
@@ -203,6 +208,7 @@ const selectedItemId = ref<string | null>(null);
 const isDragging = ref(false);
 const renamingFolder = ref<string | null>(null);
 const showMoveSubmenu = ref(false);
+const folderSidebarCollapsed = ref(false);
 
 const importProgress = reactive({ active: false, current: 0, total: 0 });
 
@@ -238,10 +244,33 @@ const emit = defineEmits<{
   'item-selected': [item: VisualMediaItem];
 }>();
 
+const isLiveBlack = ref(true);
+
 const selectItem = (item: VisualMediaItem) => {
   selectedItemId.value = item.uuid;
   visualDisplaySelect(item);
   emit('item-selected', item);
+};
+
+const pushItem = async (item: VisualMediaItem) => {
+  pushLive(item);
+  isLiveBlack.value = false;
+
+  if (!currentProject.value || !window.electronAPI) return;
+
+  const displayState = {
+    type: item.mediaType === 'pdf' ? 'pdf' : 'image',
+    mediaPath: `${currentProject.value.folderPath}/${item.mediaPath}`,
+    pdfPage: item.pdfPage || 1,
+  };
+
+  // Auto-open player window if needed
+  const status = await window.electronAPI.getPlayerWindowStatus();
+  if (!status.open) {
+    await window.electronAPI.openPlayerWindow();
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  await window.electronAPI.pushToPlayer(displayState);
 };
 
 // --- Drag and Drop ---
@@ -446,6 +475,12 @@ const executeDelete = async () => {
   flex-direction: column;
   overflow-y: auto;
   background-color: var(--color-surface);
+  transition: width 0.2s ease, min-width 0.2s ease;
+
+  &.collapsed {
+    width: 36px;
+    min-width: 36px;
+  }
 }
 
 .sidebar-header {

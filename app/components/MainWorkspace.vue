@@ -40,7 +40,11 @@
       </template>
 
       <template v-if="activeTab === 'media'">
-        <MediaLibraryPanel />
+        <div class="media-section" :style="{ width: `${mediaWidth}px` }">
+          <MediaLibraryPanel />
+        </div>
+        <div class="media-resize-handle" @mousedown="startMediaResize"></div>
+        <LiveDisplayPanel />
       </template>
     </div>
     
@@ -59,8 +63,27 @@
 const { selectedItem } = useProject();
 const { cartWidth, cartClosed, cartFullscreen, startResize } = useResizablePanel();
 const { progressModal, registerListeners, handleKeydown } = useWorkspaceListeners();
+const { mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 
 const activeTab = ref<'audio' | 'media'>('audio');
+const mediaWidth = ref(350);
+
+const startMediaResize = (e: MouseEvent) => {
+  e.preventDefault();
+  const handleMouseMove = (e: MouseEvent) => {
+    const container = document.querySelector('.workspace-content');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const newWidth = e.clientX - rect.left;
+    mediaWidth.value = Math.max(200, Math.min(rect.width * 0.6, newWidth));
+  };
+  const handleMouseUp = () => {
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+  document.addEventListener('mousemove', handleMouseMove);
+  document.addEventListener('mouseup', handleMouseUp);
+};
 
 // Register IPC listeners and keyboard shortcut
 registerListeners();
@@ -68,12 +91,14 @@ registerListeners();
 onMounted(() => {
   if (import.meta.client) {
     window.addEventListener('keydown', handleKeydown);
+    mountHotkeys();
   }
 });
 
 onUnmounted(() => {
   if (import.meta.client) {
     window.removeEventListener('keydown', handleKeydown);
+    unmountHotkeys();
   }
 });
 </script>
@@ -207,5 +232,22 @@ onUnmounted(() => {
 
 .cart-section {
   overflow: hidden;
+}
+
+.media-section {
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.media-resize-handle {
+  width: 5px;
+  background-color: var(--color-border);
+  cursor: col-resize;
+  transition: background-color var(--transition-fast);
+  flex-shrink: 0;
+
+  &:hover {
+    background-color: var(--color-accent);
+  }
 }
 </style>

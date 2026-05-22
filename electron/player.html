@@ -62,13 +62,19 @@
     function showImage(mediaPath) {
       display.innerHTML = '';
       const img = document.createElement('img');
-      // Use file:// protocol for local paths
-      img.src = 'file://' + mediaPath;
+      // Use custom protocol registered in main process
+      img.src = 'local-media://' + encodeURIComponent(mediaPath).replace(/%2F/g, '/');
+      console.log('[Player] Loading image:', img.src);
       img.alt = '';
       img.draggable = false;
-      img.onerror = () => {
-        console.error('Failed to load image:', mediaPath);
-        showBlack();
+      img.onload = () => {
+        console.log('[Player] Image loaded successfully');
+      };
+      img.onerror = (e) => {
+        console.error('[Player] Failed to load image:', mediaPath, e);
+        // Fallback: try file:// directly
+        img.onerror = () => { showBlack(); };
+        img.src = 'file://' + mediaPath;
       };
       display.appendChild(img);
     }
@@ -86,7 +92,7 @@
           return;
         }
 
-        const loadingTask = window.pdfjsLib.getDocument('file://' + mediaPath);
+        const loadingTask = window.pdfjsLib.getDocument('local-media://' + encodeURIComponent(mediaPath).replace(/%2F/g, '/'));
         pdfDoc = await loadingTask.promise;
 
         const pdfPage = await pdfDoc.getPage(pageNum);
@@ -114,6 +120,7 @@
 
     // Listen for display state changes from main process
     window.playerAPI.onDisplayState((state) => {
+      console.log('[Player] Received display state:', JSON.stringify(state));
       if (!state || state.type === 'black') {
         showBlack();
       } else if (state.type === 'image') {
