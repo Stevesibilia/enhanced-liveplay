@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectProjectFolder: () => ipcRenderer.invoke('select-project-folder'),
   selectProjectFile: () => ipcRenderer.invoke('select-project-file'),
   selectAudioFiles: () => ipcRenderer.invoke('select-audio-files'),
+  selectVisualMediaFiles: () => ipcRenderer.invoke('select-visual-media-files'),
 
   // File operations
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),

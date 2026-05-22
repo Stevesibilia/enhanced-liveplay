@@ -2,21 +2,46 @@
   <div class="main-workspace">
     <ProjectHeader />
     <PlaybackControls />
+
+    <div class="workspace-tabs">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'audio' }"
+        @click="activeTab = 'audio'"
+      >
+        <span class="material-symbols-rounded">library_music</span>
+        <span>Audio</span>
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'media' }"
+        @click="activeTab = 'media'"
+      >
+        <span class="material-symbols-rounded">image</span>
+        <span>Media</span>
+      </button>
+    </div>
     
     <div class="workspace-content">
-      <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: cartClosed ? '100%' : `calc(100% - ${cartWidth}px)` }">
-        <PlaylistView />
-      </div>
-      
-      <div 
-        class="resize-handle"
-        :class="{ 'collapsed-left': cartFullscreen, 'collapsed-right': cartClosed }"
-        @mousedown="startResize"
-      ></div>
-      
-      <div v-if="!cartClosed" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
-        <CartPlayer />
-      </div>
+      <template v-if="activeTab === 'audio'">
+        <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: cartClosed ? '100%' : `calc(100% - ${cartWidth}px)` }">
+          <PlaylistView />
+        </div>
+        
+        <div 
+          class="resize-handle"
+          :class="{ 'collapsed-left': cartFullscreen, 'collapsed-right': cartClosed }"
+          @mousedown="startResize"
+        ></div>
+        
+        <div v-if="!cartClosed" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
+          <CartPlayer />
+        </div>
+      </template>
+
+      <template v-if="activeTab === 'media'">
+        <MediaLibraryPanel />
+      </template>
     </div>
     
     <PropertiesPanel v-if="selectedItem" />
@@ -34,6 +59,8 @@
 const { selectedItem } = useProject();
 const { cartWidth, cartClosed, cartFullscreen, startResize } = useResizablePanel();
 const { progressModal, registerListeners, handleKeydown } = useWorkspaceListeners();
+
+const activeTab = ref<'audio' | 'media'>('audio');
 
 // Register IPC listeners and keyboard shortcut
 registerListeners();
@@ -58,6 +85,43 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.workspace-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 8px;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+
+  .material-symbols-rounded {
+    font-size: 16px;
+  }
+
+  &:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-hover);
+  }
+
+  &.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+  }
 }
 
 .workspace-content {
