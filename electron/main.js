@@ -1191,6 +1191,77 @@ ipcMain.handle('set-current-project', async (event, projectPath) => {
   return { success: true };
 });
 
+// Visual media supported extensions
+const VISUAL_MEDIA_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.pdf'];
+
+// Import visual media file — copies to media/visuals/<uuid>_<filename>
+ipcMain.handle('import-visual-media', async (event, projectFolderPath, sourceFilePath, uuid) => {
+  try {
+    const ext = path.extname(sourceFilePath).toLowerCase();
+    if (!VISUAL_MEDIA_EXTENSIONS.includes(ext)) {
+      return { success: false, error: `Unsupported file type: ${ext}. Supported: ${VISUAL_MEDIA_EXTENSIONS.join(', ')}` };
+    }
+
+    const visualsDir = path.join(projectFolderPath, 'media', 'visuals');
+    // Ensure media/visuals/ directory exists
+    if (!fs.existsSync(visualsDir)) {
+      fs.mkdirSync(visualsDir, { recursive: true });
+    }
+
+    const originalName = path.basename(sourceFilePath);
+    const destFileName = `${uuid}_${originalName}`;
+    const destPath = path.join(visualsDir, destFileName);
+
+    fs.copyFileSync(sourceFilePath, destPath);
+
+    const relativePath = `media/visuals/${destFileName}`;
+    return { success: true, mediaFileName: destFileName, mediaPath: relativePath };
+  } catch (error) {
+    console.error('Import visual media error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Read visual media file — returns base64-encoded data
+ipcMain.handle('read-visual-media', async (event, projectFolderPath, mediaPath) => {
+  try {
+    const fullPath = path.join(projectFolderPath, mediaPath);
+    if (!fs.existsSync(fullPath)) {
+      return { success: false, error: 'File not found' };
+    }
+    const data = fs.readFileSync(fullPath);
+    return { success: true, data: data.toString('base64'), mimeType: getMimeType(fullPath) };
+  } catch (error) {
+    console.error('Read visual media error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Helper to get MIME type from file path
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+    '.pdf': 'application/pdf'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
+// Delete visual media file from disk
+ipcMain.handle('delete-visual-media', async (event, projectFolderPath, mediaPath) => {
+  try {
+    const fullPath = path.join(projectFolderPath, mediaPath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Delete visual media error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Export project to .lpa archive
 ipcMain.handle('export-project', async (event, projectFolderPath, projectName = null) => {
   try {

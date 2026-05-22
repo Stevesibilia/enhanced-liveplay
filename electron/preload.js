@@ -138,5 +138,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeMidiConfig: (config) => ipcRenderer.invoke('write-midi-config', config),
 
   // Clipboard
-  writeClipboardText: (text) => ipcRenderer.invoke('write-clipboard-text', text)
+  writeClipboardText: (text) => ipcRenderer.invoke('write-clipboard-text', text),
+
+  // Visual media
+  importVisualMedia: (projectFolderPath, sourceFilePath, uuid) => ipcRenderer.invoke('import-visual-media', projectFolderPath, sourceFilePath, uuid),
+  readVisualMedia: (projectFolderPath, mediaPath) => ipcRenderer.invoke('read-visual-media', projectFolderPath, mediaPath),
+  deleteVisualMedia: (projectFolderPath, mediaPath) => ipcRenderer.invoke('delete-visual-media', projectFolderPath, mediaPath)
 });
