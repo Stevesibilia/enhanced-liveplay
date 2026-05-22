@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol, clipboard, net } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -10,6 +10,11 @@ const ffmpeg = require('fluent-ffmpeg');
 const { promisify } = require('util');
 const https = require('https');
 const execPromise = promisify(exec);
+
+// Register custom protocol as privileged (must be before app ready)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-media', privileges: { bypassCSP: true, stream: true, supportFetchAPI: true } }
+]);
 
 let ffmpegPath = null;
 let ffmpegAvailable = false;
@@ -783,6 +788,7 @@ function createPlayerWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
       preload: path.join(__dirname, 'preload-player.js'),
       webSecurity: false // Allow loading local file:// images and PDFs
     },
@@ -1391,6 +1397,9 @@ ipcMain.handle('get-player-window-status', () => {
   return { open: !!playerWindow && !playerWindow.isDestroyed() };
 });
 
+// Accepts a PlayerDisplayState payload: { layers: PublishedLayer[] }.
+// (Legacy single-item payloads are no longer emitted by the renderer; the
+// player.html handler keeps a compatibility branch for safety.)
 ipcMain.handle('push-to-player', (event, displayState) => {
   if (playerWindow && !playerWindow.isDestroyed()) {
     playerWindow.webContents.send('display-state', displayState);
@@ -2036,6 +2045,14 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
+    // Register protocol to serve local media files safely
+    protocol.handle('local-media', (request) => {
+      const url = request.url.replace('local-media://', '');
+      const filePath = decodeURIComponent(url);
+      console.log('[Protocol] Serving local-media:', filePath);
+      return net.fetch('file://' + filePath);
+    });
+
     // Setup bundled ffmpeg before creating window
     const ffmpegReady = await checkAndSetupFfmpeg();
     if (!ffmpegReady) {

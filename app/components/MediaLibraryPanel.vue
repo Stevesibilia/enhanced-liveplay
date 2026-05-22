@@ -7,14 +7,17 @@
     :class="{ 'drag-active': isDragging }"
   >
     <!-- Folder Sidebar -->
-    <div class="folder-sidebar">
+    <div class="folder-sidebar" :class="{ collapsed: folderSidebarCollapsed }">
       <div class="sidebar-header">
-        <span class="sidebar-title">Folders</span>
-        <button class="icon-btn" @click="showNewFolderDialog" title="New Folder">
+        <span v-if="!folderSidebarCollapsed" class="sidebar-title">Folders</span>
+        <button class="icon-btn" @click="folderSidebarCollapsed = !folderSidebarCollapsed" :title="folderSidebarCollapsed ? 'Show folders' : 'Hide folders'">
+          <span class="material-symbols-rounded">{{ folderSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</span>
+        </button>
+        <button v-if="!folderSidebarCollapsed" class="icon-btn" @click="showNewFolderDialog" title="New Folder">
           <span class="material-symbols-rounded">create_new_folder</span>
         </button>
       </div>
-      <ul class="folder-list">
+      <ul v-if="!folderSidebarCollapsed" class="folder-list">
         <li
           class="folder-item"
           :class="{ active: selectedFolder === null }"
@@ -38,10 +41,9 @@
           :class="{ active: selectedFolder === folder }"
           @click="selectedFolder = folder"
           @dblclick="startRenameFolder(folder)"
-          @contextmenu.prevent="showFolderContextMenu($event, folder)"
         >
           <span class="material-symbols-rounded">folder</span>
-          <span v-if="renamingFolder !== folder">{{ folder }}</span>
+          <span v-if="renamingFolder !== folder" class="folder-name">{{ folder }}</span>
           <input
             v-else
             ref="folderRenameInput"
@@ -51,6 +53,14 @@
             @keydown.escape="renamingFolder = null"
             @blur="confirmRenameFolder($event, folder)"
           />
+          <button
+            v-if="renamingFolder !== folder"
+            class="folder-delete-btn"
+            title="Delete folder"
+            @click.stop="confirmDeleteFolderFromButton(folder)"
+          >
+            <span class="material-symbols-rounded">delete</span>
+          </button>
         </li>
       </ul>
     </div>
@@ -78,7 +88,9 @@
           :item="item"
           :selected="selectedItemId === item.uuid"
           @select="selectItem(item)"
-          @contextmenu="showItemContextMenu($event, item)"
+          @push="pushItem(item)"
+          @properties="openItemProperties(item)"
+          @delete="confirmDeleteItemFromButton(item)"
         />
       </div>
 
@@ -87,65 +99,6 @@
         <span>Importing {{ importProgress.current }}/{{ importProgress.total }}...</span>
       </div>
     </div>
-
-    <!-- Context Menu -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenu.visible"
-        class="context-menu"
-        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
-        @click="contextMenu.visible = false"
-      >
-        <template v-if="contextMenu.type === 'item'">
-          <button class="context-item" @click="startRenameItem">
-            <span class="material-symbols-rounded">edit</span> Rename
-          </button>
-          <button class="context-item has-submenu" @mouseenter="showMoveSubmenu = true" @mouseleave="showMoveSubmenu = false">
-            <span class="material-symbols-rounded">drive_file_move</span> Move to folder
-            <div v-if="showMoveSubmenu" class="submenu">
-              <button class="context-item" @click="moveItemToFolder(undefined)">Unfiled</button>
-              <button
-                v-for="f in folders"
-                :key="f"
-                class="context-item"
-                @click="moveItemToFolder(f)"
-              >{{ f }}</button>
-            </div>
-          </button>
-          <button class="context-item danger" @click="confirmDeleteItem">
-            <span class="material-symbols-rounded">delete</span> Delete
-          </button>
-        </template>
-        <template v-if="contextMenu.type === 'folder'">
-          <button class="context-item" @click="startRenameFolderFromMenu">
-            <span class="material-symbols-rounded">edit</span> Rename
-          </button>
-          <button class="context-item danger" @click="confirmDeleteFolder">
-            <span class="material-symbols-rounded">delete</span> Delete
-          </button>
-        </template>
-      </div>
-    </Teleport>
-
-    <!-- Rename Item Dialog -->
-    <Teleport to="body">
-      <div v-if="renameDialog.visible" class="dialog-overlay" @click.self="renameDialog.visible = false">
-        <div class="dialog">
-          <h3>Rename</h3>
-          <input
-            ref="renameInput"
-            v-model="renameDialog.value"
-            class="dialog-input"
-            @keydown.enter="confirmRenameItem"
-            @keydown.escape="renameDialog.visible = false"
-          />
-          <div class="dialog-actions">
-            <button class="btn-cancel" @click="renameDialog.visible = false">Cancel</button>
-            <button class="btn-confirm" @click="confirmRenameItem">Rename</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- Delete Confirmation Dialog -->
     <Teleport to="body">
@@ -195,31 +148,24 @@ import { getVisualMediaType } from '~/types/project';
 
 const { currentProject } = useProject();
 const { addVisualMedia, removeVisualMedia, updateVisualMedia, addVisualFolder, removeVisualFolder } = useVisualMedia();
-const { selectItem: visualDisplaySelect } = useVisualDisplay();
+const { selectItem: visualDisplaySelect, addLayer, selectLayer } = useVisualDisplay();
 
 // --- State ---
 const selectedFolder = ref<string | null>(null);
 const selectedItemId = ref<string | null>(null);
 const isDragging = ref(false);
 const renamingFolder = ref<string | null>(null);
-const showMoveSubmenu = ref(false);
+const folderSidebarCollapsed = ref(false);
 
 const importProgress = reactive({ active: false, current: 0, total: 0 });
 
-const contextMenu = reactive({
-  visible: false,
-  x: 0,
-  y: 0,
-  type: '' as 'item' | 'folder',
-  targetItem: null as VisualMediaItem | null,
-  targetFolder: null as string | null,
-});
+// Active targets for the dialog flows (button-driven now)
+const targetItem = ref<VisualMediaItem | null>(null);
+const targetFolder = ref<string | null>(null);
 
-const renameDialog = reactive({ visible: false, value: '' });
 const deleteDialog = reactive({ visible: false, type: '' as 'item' | 'folder', name: '' });
 const newFolderDialog = reactive({ visible: false, value: '' });
 
-const renameInput = ref<HTMLInputElement | null>(null);
 const newFolderInput = ref<HTMLInputElement | null>(null);
 
 // --- Computed ---
@@ -242,6 +188,14 @@ const selectItem = (item: VisualMediaItem) => {
   selectedItemId.value = item.uuid;
   visualDisplaySelect(item);
   emit('item-selected', item);
+};
+
+// Push from the media library = add as a new draft layer in the composition.
+// It does NOT appear on the player until the GM publishes it.
+// PDF support is deferred — addLayer returns null for non-image media.
+const pushItem = (item: VisualMediaItem) => {
+  const layer = addLayer(item);
+  if (layer) selectLayer(layer.id);
 };
 
 // --- Drag and Drop ---
@@ -308,55 +262,21 @@ const importFiles = async (filePaths: string[]) => {
   importProgress.active = false;
 };
 
-// --- Context Menu ---
-const showItemContextMenu = (event: MouseEvent, item: VisualMediaItem) => {
-  contextMenu.visible = true;
-  contextMenu.x = event.clientX;
-  contextMenu.y = event.clientY;
-  contextMenu.type = 'item';
-  contextMenu.targetItem = item;
+// --- Item Operations (button-driven) ---
+
+// Cog button → open properties = select the item (PropertiesPanel reacts to selectedItem)
+const openItemProperties = (item: VisualMediaItem) => {
+  selectItem(item);
 };
 
-const showFolderContextMenu = (event: MouseEvent, folder: string) => {
-  contextMenu.visible = true;
-  contextMenu.x = event.clientX;
-  contextMenu.y = event.clientY;
-  contextMenu.type = 'folder';
-  contextMenu.targetFolder = folder;
-};
-
-// Close context menu on outside click
-if (import.meta.client) {
-  const closeMenu = () => { contextMenu.visible = false; };
-  onMounted(() => document.addEventListener('click', closeMenu));
-  onUnmounted(() => document.removeEventListener('click', closeMenu));
-}
-
-// --- Item Operations ---
-const startRenameItem = () => {
-  if (!contextMenu.targetItem) return;
-  renameDialog.value = contextMenu.targetItem.displayName;
-  renameDialog.visible = true;
-  nextTick(() => renameInput.value?.select());
-};
-
-const confirmRenameItem = () => {
-  if (!contextMenu.targetItem || !renameDialog.value.trim()) return;
-  updateVisualMedia(contextMenu.targetItem.uuid, { displayName: renameDialog.value.trim() });
-  renameDialog.visible = false;
-};
-
-const moveItemToFolder = (folder: string | undefined) => {
-  if (!contextMenu.targetItem) return;
-  updateVisualMedia(contextMenu.targetItem.uuid, { folder });
-};
-
-const confirmDeleteItem = () => {
-  if (!contextMenu.targetItem) return;
+// Trash button → confirm-then-delete flow
+const confirmDeleteItemFromButton = (item: VisualMediaItem) => {
+  targetItem.value = item;
   deleteDialog.type = 'item';
-  deleteDialog.name = contextMenu.targetItem.displayName;
+  deleteDialog.name = item.displayName;
   deleteDialog.visible = true;
 };
+
 
 // --- Folder Operations ---
 const showNewFolderDialog = () => {
@@ -376,12 +296,6 @@ const startRenameFolder = (folder: string) => {
   renamingFolder.value = folder;
 };
 
-const startRenameFolderFromMenu = () => {
-  if (contextMenu.targetFolder) {
-    renamingFolder.value = contextMenu.targetFolder;
-  }
-};
-
 const confirmRenameFolder = (event: Event, oldName: string) => {
   const input = event.target as HTMLInputElement;
   const newName = input.value.trim();
@@ -398,25 +312,29 @@ const confirmRenameFolder = (event: Event, oldName: string) => {
   renamingFolder.value = null;
 };
 
-const confirmDeleteFolder = () => {
-  if (!contextMenu.targetFolder) return;
+const confirmDeleteFolderFromButton = (folder: string) => {
+  targetFolder.value = folder;
   deleteDialog.type = 'folder';
-  deleteDialog.name = contextMenu.targetFolder;
+  deleteDialog.name = folder;
   deleteDialog.visible = true;
 };
 
 // --- Delete Execution ---
 const executeDelete = async () => {
-  if (deleteDialog.type === 'item' && contextMenu.targetItem) {
-    await removeVisualMedia(contextMenu.targetItem.uuid, true);
-    if (selectedItemId.value === contextMenu.targetItem.uuid) {
+  if (deleteDialog.type === 'item' && targetItem.value) {
+    const item = targetItem.value;
+    await removeVisualMedia(item.uuid, true);
+    if (selectedItemId.value === item.uuid) {
       selectedItemId.value = null;
     }
-  } else if (deleteDialog.type === 'folder' && contextMenu.targetFolder) {
-    removeVisualFolder(contextMenu.targetFolder);
-    if (selectedFolder.value === contextMenu.targetFolder) {
+    targetItem.value = null;
+  } else if (deleteDialog.type === 'folder' && targetFolder.value) {
+    const folder = targetFolder.value;
+    removeVisualFolder(folder);
+    if (selectedFolder.value === folder) {
       selectedFolder.value = null;
     }
+    targetFolder.value = null;
   }
   deleteDialog.visible = false;
 };
@@ -446,6 +364,12 @@ const executeDelete = async () => {
   flex-direction: column;
   overflow-y: auto;
   background-color: var(--color-surface);
+  transition: width 0.2s ease, min-width 0.2s ease;
+
+  &.collapsed {
+    width: 36px;
+    min-width: 36px;
+  }
 }
 
 .sidebar-header {
@@ -498,7 +422,36 @@ const executeDelete = async () => {
 
   .material-symbols-rounded { font-size: 16px; color: var(--color-text-secondary); }
 
-  &:hover { background-color: var(--color-surface-hover); }
+  .folder-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .folder-delete-btn {
+    display: none;
+    border: none;
+    background: transparent;
+    padding: 2px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+
+    &:hover {
+      color: var(--color-danger, #e53935);
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .material-symbols-rounded { font-size: 14px; color: inherit; }
+  }
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+
+    .folder-delete-btn { display: flex; }
+  }
+
   &.active {
     background-color: rgba(218, 30, 40, 0.15);
     color: var(--color-accent);
@@ -585,52 +538,6 @@ const executeDelete = async () => {
   border-top: 1px solid var(--color-border);
   font-size: 12px;
   color: var(--color-text-secondary);
-}
-
-// Context menu
-.context-menu {
-  position: fixed;
-  z-index: 9999;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  padding: 4px 0;
-  min-width: 160px;
-}
-
-.context-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 12px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-  position: relative;
-
-  .material-symbols-rounded { font-size: 16px; }
-
-  &:hover { background-color: var(--color-surface-hover); }
-  &.danger { color: var(--color-danger); }
-
-  &.has-submenu {
-    .submenu {
-      position: absolute;
-      left: 100%;
-      top: 0;
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: 4px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      padding: 4px 0;
-      min-width: 120px;
-    }
-  }
 }
 
 // Dialog styles

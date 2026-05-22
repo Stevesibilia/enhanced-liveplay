@@ -1,9 +1,27 @@
 <template>
-  <div class="media-library-item" :class="{ selected }" @click="$emit('select')" @contextmenu.prevent="$emit('contextmenu', $event)">
+  <div
+    class="media-library-item"
+    :class="{ selected }"
+    draggable="true"
+    @click="$emit('select')"
+    @dragstart="onDragStart"
+  >
     <div class="thumbnail">
       <img v-if="item.mediaType === 'image' && thumbnailSrc" :src="thumbnailSrc" :alt="item.displayName" />
       <div v-else class="pdf-icon">
         <span class="material-symbols-rounded">picture_as_pdf</span>
+      </div>
+
+      <div class="action-row">
+        <button class="thumb-btn" @click.stop="$emit('properties')" title="Properties">
+          <span class="material-symbols-rounded">settings</span>
+        </button>
+        <button class="thumb-btn push" @click.stop="$emit('push')" title="Add to composition">
+          <span class="material-symbols-rounded">add</span>
+        </button>
+        <button class="thumb-btn danger" @click.stop="$emit('delete')" title="Delete">
+          <span class="material-symbols-rounded">delete</span>
+        </button>
       </div>
     </div>
     <div class="item-name" :title="item.displayName">{{ item.displayName }}</div>
@@ -20,8 +38,16 @@ const props = defineProps<{
 
 defineEmits<{
   select: [];
-  contextmenu: [event: MouseEvent];
+  push: [];
+  properties: [];
+  delete: [];
 }>();
+
+const onDragStart = (e: DragEvent) => {
+  if (!e.dataTransfer) return;
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('application/x-visual-media-uuid', props.item.uuid);
+};
 
 const { currentProject } = useProject();
 
@@ -58,6 +84,10 @@ watch(() => props.item.mediaPath, loadThumbnail);
 
   &:hover {
     background-color: var(--color-surface-hover);
+
+    .action-row {
+      opacity: 1;
+    }
   }
 
   &.selected {
@@ -77,11 +107,64 @@ watch(() => props.item.mediaPath, loadThumbnail);
   overflow: hidden;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
+  position: relative;
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+}
+
+.action-row {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  pointer-events: none;
+
+  .thumb-btn {
+    pointer-events: auto;
+  }
+}
+
+.thumb-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+
+  .material-symbols-rounded {
+    font-size: 14px;
+  }
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.85);
+    transform: scale(1.08);
+  }
+
+  &.push {
+    background-color: var(--color-accent);
+
+    &:hover {
+      background-color: var(--color-accent-hover, var(--color-accent));
+    }
+  }
+
+  &.danger:hover {
+    background-color: var(--color-danger, #e53935);
   }
 }
 
