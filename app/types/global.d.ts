@@ -8,6 +8,7 @@ declare global {
       selectProjectFolder: () => Promise<string | null>;
       selectProjectFile: () => Promise<string | null>;
       selectAudioFiles: () => Promise<string[] | null>;
+      selectVisualMediaFiles: () => Promise<string[] | null>;
       readFile: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       readAudioFile: (filePath: string) => Promise<{ success: boolean; data?: number[]; error?: string }>;
       writeFile: (filePath: string, data: string) => Promise<{ success: boolean; error?: string }>;

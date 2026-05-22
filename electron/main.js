@@ -1116,6 +1116,20 @@ ipcMain.handle('select-audio-files', async () => {
   return null;
 });
 
+ipcMain.handle('select-visual-media-files', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Visual Media', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'pdf'] }
+    ]
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths;
+  }
+  return null;
+});
+
 ipcMain.handle('read-file', async (event, filePath) => {
   try {
     const safe = pathIsInProjectFolder(filePath);
