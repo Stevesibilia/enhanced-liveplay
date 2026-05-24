@@ -201,6 +201,7 @@ let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
 let playerWindow = null; // Player display window (second monitor)
 let playerWindowBounds = null; // Session-only bounds persistence
+let visualDisplayEnabled = true; // Per-project flag mirrored from renderer; gates player window menu item
 
 // Guard: resolve a path and verify it lives inside the active project folder.
 // Returns the resolved path on success, or null if outside the project.
@@ -1020,9 +1021,19 @@ function createMenu(locale = 'en', isDev = false) {
         },
         { type: 'separator' },
         {
+          label: 'Enable Visual Display',
+          type: 'checkbox',
+          checked: visualDisplayEnabled,
+          click: () => {
+            mainWindow.webContents.send('menu-toggle-visual-display');
+          }
+        },
+        {
           label: 'Open/Close Player Window',
           accelerator: 'CmdOrCtrl+P',
+          enabled: visualDisplayEnabled,
           click: () => {
+            if (!visualDisplayEnabled) return;
             if (playerWindow) {
               closePlayerWindow();
             } else {
@@ -1307,6 +1318,20 @@ ipcMain.handle('get-locale-data', (event, localeCode) => {
 ipcMain.handle('set-current-project', async (event, projectPath) => {
   currentProject = projectPath;
   // Rebuild menu to update enabled/disabled state of menu items
+  createMenu(currentLocale, isDevMode);
+  return { success: true };
+});
+
+// Renderer reports the active project's visual-display flag (on project load or toggle).
+// Main process mirrors the value to drive menu state and player-window auto-close.
+ipcMain.handle('set-visual-display-enabled', async (event, enabled) => {
+  const next = !!enabled;
+  const wasEnabled = visualDisplayEnabled;
+  visualDisplayEnabled = next;
+  // Auto-close player window when visuals are disabled.
+  if (wasEnabled && !next && playerWindow) {
+    closePlayerWindow();
+  }
   createMenu(currentLocale, isDevMode);
   return { success: true };
 });

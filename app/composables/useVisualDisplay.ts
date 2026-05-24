@@ -205,6 +205,10 @@ export const useVisualDisplay = () => {
       findItemByUuid: (uuid: string) => unknown;
     }
   ) => {
+    // Suppress all visual/audio firing when the project has visuals disabled.
+    const { visualDisplayEnabled } = useProject();
+    if (!visualDisplayEnabled.value) return;
+
     const layer = layers.value.find((l) => l.id === id);
     if (!layer) return;
 

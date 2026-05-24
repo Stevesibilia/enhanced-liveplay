@@ -108,6 +108,7 @@ export const useProject = () => {
         cartOnlyItems: [],
         visualMedia: [],
         visualFolders: [],
+        visualDisplayEnabled: true,
         theme: { ...DEFAULT_THEME },
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString()
@@ -157,6 +158,11 @@ export const useProject = () => {
           const versionBefore = parsed.schemaVersion ?? 0;
           runMigrations(parsed);
           const wasMigrated = versionBefore < CURRENT_SCHEMA_VERSION;
+
+          // Default visualDisplayEnabled to true when absent (additive optional field, no schema bump)
+          if (parsed.visualDisplayEnabled === undefined) {
+            parsed.visualDisplayEnabled = true;
+          }
 
           const project: Project = parsed;
           
@@ -480,6 +486,19 @@ export const useProject = () => {
     }
   };
 
+  // --- Visual display per-project flag ---
+  // Defaults to true when absent so legacy projects keep current behavior.
+  const visualDisplayEnabled = computed<boolean>(() => {
+    return currentProject.value?.visualDisplayEnabled ?? true;
+  });
+
+  const setVisualDisplayEnabled = (value: boolean) => {
+    if (!currentProject.value) return;
+    if (currentProject.value.visualDisplayEnabled === value) return;
+    currentProject.value.visualDisplayEnabled = value;
+    saveProject();
+  };
+
   return {
     currentProject,
     selectedItem,
@@ -498,6 +517,8 @@ export const useProject = () => {
     findItemByUuid,
     findItemByIndex,
     moveItem,
-    updateIndices
+    updateIndices,
+    visualDisplayEnabled,
+    setVisualDisplayEnabled,
   };
 };

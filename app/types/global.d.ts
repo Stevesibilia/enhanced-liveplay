@@ -67,6 +67,8 @@ declare global {
       onMenuChangeLanguage: (callback: (event: IpcEvent, locale: string) => void) => void;
       onMenuShowAbout: (callback: () => void) => void;
       onMenuToggleMinimalMode: (callback: () => void) => void;
+      onMenuToggleVisualDisplay: (callback: () => void) => void;
+      setVisualDisplayEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
       enterMinimalMode: () => Promise<void>;
       exitMinimalMode: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;

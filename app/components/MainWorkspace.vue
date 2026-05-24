@@ -13,6 +13,7 @@
         <span>Audio</span>
       </button>
       <button
+        v-if="visualDisplayEnabled"
         class="tab-btn"
         :class="{ active: activeTab === 'media' }"
         @click="activeTab = 'media'"
@@ -21,25 +22,25 @@
         <span>Media</span>
       </button>
     </div>
-    
+
     <div class="workspace-content">
       <template v-if="activeTab === 'audio'">
         <div v-if="!cartFullscreen" class="playlist-section" :style="{ width: cartClosed ? '100%' : `calc(100% - ${cartWidth}px)` }">
           <PlaylistView />
         </div>
-        
-        <div 
+
+        <div
           class="resize-handle"
           :class="{ 'collapsed-left': cartFullscreen, 'collapsed-right': cartClosed }"
           @mousedown="startResize"
         ></div>
-        
+
         <div v-if="!cartClosed" class="cart-section" :style="{ width: cartFullscreen ? '100%' : `${cartWidth}px` }">
           <CartPlayer />
         </div>
       </template>
 
-      <template v-if="activeTab === 'media'">
+      <template v-if="activeTab === 'media' && visualDisplayEnabled">
         <div class="media-section" :style="{ width: `${mediaWidth}px` }">
           <MediaLibraryPanel />
         </div>
@@ -65,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-const { selectedItem } = useProject();
+const { selectedItem, visualDisplayEnabled } = useProject();
 const {
   selectedItem: visualSelected,
   propertiesOpen: visualPropertiesOpen,
@@ -76,6 +77,13 @@ const { progressModal, registerListeners, handleKeydown } = useWorkspaceListener
 const { mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 
 const activeTab = ref<'audio' | 'media'>('audio');
+
+// If visuals get disabled while the Media tab is active, fall back to Audio.
+watch(visualDisplayEnabled, (enabled) => {
+  if (!enabled && activeTab.value === 'media') {
+    activeTab.value = 'audio';
+  }
+});
 const mediaWidth = ref(350);
 
 const startMediaResize = (e: MouseEvent) => {

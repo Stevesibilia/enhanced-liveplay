@@ -169,6 +169,7 @@ export interface Project {
   cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
   visualMedia: VisualMediaItem[]; // Visual media items (images, PDFs)
   visualFolders: string[]; // User-defined folder tags for visual media organization
+  visualDisplayEnabled?: boolean; // Per-project toggle; absent or true => visual subsystem active
   theme: Theme;
   createdAt: string;
   lastModified: string;

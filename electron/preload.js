@@ -91,6 +91,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuChangeLanguage: (callback) => ipcRenderer.on('menu-change-language', callback),
   onMenuShowAbout: (callback) => ipcRenderer.on('menu-show-about', callback),
   onMenuToggleMinimalMode: (callback) => ipcRenderer.on('menu-toggle-minimal-mode', callback),
+  onMenuToggleVisualDisplay: (callback) => ipcRenderer.on('menu-toggle-visual-display', callback),
+  setVisualDisplayEnabled: (enabled) => ipcRenderer.invoke('set-visual-display-enabled', enabled),
 
   // Minimal mode
   enterMinimalMode: () => ipcRenderer.invoke('enter-minimal-mode'),
