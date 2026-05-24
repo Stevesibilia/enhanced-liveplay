@@ -36,6 +36,7 @@
           published: layer.published,
           draft: !layer.published,
           selected: selectedLayerId === layer.id,
+          pending: isLayerPending(layer.id),
         }"
         :style="{
           left: layer.x + '%',
@@ -64,6 +65,11 @@
             @mousedown.stop="onResizeStart($event, layer, handle)"
           ></div>
         </template>
+
+        <div v-if="isLayerPending(layer.id)" class="pending-tag">
+          <span class="material-symbols-rounded">schedule</span>
+          <span>queued</span>
+        </div>
       </div>
     </div>
 
@@ -97,7 +103,7 @@
 import type { VisualMediaItem } from '~/types/project';
 import type { DisplayLayer } from '~/types/ipc';
 
-const { currentProject } = useProject();
+const { currentProject, findItemByUuid } = useProject();
 const {
   layers,
   selectedLayerId,
@@ -105,15 +111,16 @@ const {
   addLayer,
   removeLayer,
   updateLayer,
-  publishLayer,
-  unpublishLayer,
-  publishAll,
+  publishLayerWithLinking,
+  unpublishLayerWithFade,
   blackAll,
   bringToFront,
   sendToBack,
   getPublishedState,
+  isLayerPending,
 } = useVisualDisplay();
 const { syncToPlayer } = usePlayerSync();
+const { playCue } = useAudioEngine();
 
 const workspaceRef = ref<HTMLElement | null>(null);
 const isDragOver = ref(false);
@@ -380,9 +387,15 @@ const computeResize = (s: DragSession, dx: number, dy: number) => {
 // --- Action bar handlers ---
 
 const togglePublish = (layer: DisplayLayer) => {
-  if (layer.published) unpublishLayer(layer.id);
-  else publishLayer(layer.id);
-  void syncIfReady();
+  if (layer.published) {
+    unpublishLayerWithFade(layer.id, { syncCallback: syncIfReady });
+  } else {
+    publishLayerWithLinking(layer.id, {
+      syncCallback: syncIfReady,
+      playCue,
+      findItemByUuid,
+    });
+  }
 };
 
 const onRemove = (id: string) => {
@@ -392,8 +405,17 @@ const onRemove = (id: string) => {
 };
 
 const onPublishAll = () => {
-  publishAll();
-  void syncIfReady();
+  // Publish each currently-draft layer through the linking pipeline so each
+  // honors its own linked cue / delay. Already-published layers are untouched.
+  const draftIds = layers.value.filter((l) => !l.published).map((l) => l.id);
+  if (draftIds.length === 0) return;
+  for (const id of draftIds) {
+    publishLayerWithLinking(id, {
+      syncCallback: syncIfReady,
+      playCue,
+      findItemByUuid,
+    });
+  }
 };
 
 const onBlackAll = () => {
@@ -558,6 +580,31 @@ onUnmounted(() => {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
     z-index: 9999 !important;
+  }
+
+  &.pending {
+    border: 2px dashed #ffb74d;
+  }
+}
+
+.pending-tag {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #ffb74d;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+
+  .material-symbols-rounded {
+    font-size: 12px;
   }
 }
 

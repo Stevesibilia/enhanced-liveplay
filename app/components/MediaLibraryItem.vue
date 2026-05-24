@@ -12,6 +12,10 @@
         <span class="material-symbols-rounded">picture_as_pdf</span>
       </div>
 
+      <div v-if="item.linkedCueUuid" class="link-badge" title="Linked to an audio cue">
+        <span class="material-symbols-rounded">music_note</span>
+      </div>
+
       <div class="action-row">
         <button class="thumb-btn" @click.stop="$emit('properties')" title="Properties">
           <span class="material-symbols-rounded">settings</span>
@@ -165,6 +169,25 @@ watch(() => props.item.mediaPath, loadThumbnail);
 
   &.danger:hover {
     background-color: var(--color-danger, #e53935);
+  }
+}
+
+.link-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  pointer-events: none;
+
+  .material-symbols-rounded {
+    font-size: 12px;
   }
 }
 
