@@ -74,6 +74,8 @@ export interface PublishedLayer {
   width: number;
   height: number;
   zIndex: number;
+  fadeIn?: number;   // seconds; applied when this layer is newly added
+  fadeOut?: number;  // seconds; applied when this layer is removed
 }
 
 // Full state pushed to the player window on every change

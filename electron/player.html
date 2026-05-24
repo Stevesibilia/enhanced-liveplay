@@ -23,6 +23,13 @@
     .layer {
       position: absolute;
       overflow: hidden;
+      opacity: 1;
+    }
+    .layer.entering {
+      opacity: 0;
+    }
+    .layer.leaving {
+      opacity: 0;
     }
     .layer img {
       width: 100%;
@@ -55,8 +62,14 @@
       return 'local-media://' + encodeURIComponent(absolutePath).replace(/%2F/g, '/');
     }
 
+    // Cache of currently-mounted layer DOM nodes by layer id.
+    // Tracking lets us animate adds/removes individually instead of
+    // re-rendering the whole stack on every push.
+    const mountedLayers = new Map();
+
     function clearDisplay() {
       display.innerHTML = '';
+      mountedLayers.clear();
     }
 
     function makeImageLayer(layer) {
@@ -82,6 +95,54 @@
       return el;
     }
 
+    function updateLayerPosition(el, layer) {
+      el.style.left = layer.x + '%';
+      el.style.top = layer.y + '%';
+      el.style.width = layer.width + '%';
+      el.style.height = layer.height + '%';
+      el.style.zIndex = String(layer.zIndex);
+    }
+
+    function addLayerWithFade(layer) {
+      const el = makeImageLayer(layer);
+      const fadeIn = Number(layer.fadeIn) > 0 ? Number(layer.fadeIn) : 0;
+      if (fadeIn > 0) {
+        el.classList.add('entering');
+        el.style.transition = 'opacity ' + fadeIn + 's linear';
+      } else {
+        el.style.transition = '';
+      }
+      display.appendChild(el);
+      mountedLayers.set(layer.id, { el, fadeOut: Number(layer.fadeOut) || 0 });
+
+      if (fadeIn > 0) {
+        // Trigger transition on next frame so the 0 → 1 change is animated.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          el.classList.remove('entering');
+        }));
+      }
+    }
+
+    function removeLayerWithFade(id) {
+      const entry = mountedLayers.get(id);
+      if (!entry) return;
+      const { el, fadeOut } = entry;
+      mountedLayers.delete(id);
+      if (fadeOut > 0) {
+        el.style.transition = 'opacity ' + fadeOut + 's linear';
+        // Force layout so the upcoming opacity change actually animates.
+        // eslint-disable-next-line no-unused-expressions
+        el.offsetWidth;
+        el.classList.add('leaving');
+        const cleanup = () => { if (el.parentNode) el.parentNode.removeChild(el); };
+        el.addEventListener('transitionend', cleanup, { once: true });
+        // Safety net in case transitionend doesn't fire (e.g. interrupted).
+        setTimeout(cleanup, fadeOut * 1000 + 100);
+      } else {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }
+    }
+
     function renderState(state) {
       console.log('[Player] Received display state:', state);
 
@@ -98,17 +159,27 @@
         state = { layers: [synthetic] };
       }
 
-      clearDisplay();
+      const incoming = Array.isArray(state?.layers) ? state.layers : [];
+      const incomingById = new Map();
+      for (const layer of incoming) {
+        if (layer.type === 'image') incomingById.set(layer.id, layer);
+      }
 
-      const layers = Array.isArray(state?.layers) ? state.layers : [];
-      if (layers.length === 0) return;
+      // Remove layers that no longer appear in the incoming state.
+      for (const id of Array.from(mountedLayers.keys())) {
+        if (!incomingById.has(id)) removeLayerWithFade(id);
+      }
 
-      const sorted = [...layers].sort((a, b) => a.zIndex - b.zIndex);
+      // Add or update each incoming layer.
+      const sorted = [...incomingById.values()].sort((a, b) => a.zIndex - b.zIndex);
       for (const layer of sorted) {
-        if (layer.type === 'image') {
-          display.appendChild(makeImageLayer(layer));
+        const existing = mountedLayers.get(layer.id);
+        if (existing) {
+          updateLayerPosition(existing.el, layer);
+          existing.fadeOut = Number(layer.fadeOut) || 0;
+        } else {
+          addLayerWithFade(layer);
         }
-        // Other types are ignored for now.
       }
     }
 

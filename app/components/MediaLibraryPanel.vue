@@ -148,7 +148,7 @@ import { getVisualMediaType } from '~/types/project';
 
 const { currentProject } = useProject();
 const { addVisualMedia, removeVisualMedia, updateVisualMedia, addVisualFolder, removeVisualFolder } = useVisualMedia();
-const { selectItem: visualDisplaySelect, addLayer, selectLayer } = useVisualDisplay();
+const { selectItem: visualDisplaySelect, addLayer, selectLayer, openProperties } = useVisualDisplay();
 
 // --- State ---
 const selectedFolder = ref<string | null>(null);
@@ -264,9 +264,10 @@ const importFiles = async (filePaths: string[]) => {
 
 // --- Item Operations (button-driven) ---
 
-// Cog button → open properties = select the item (PropertiesPanel reacts to selectedItem)
+// Cog button → open the Visual Properties pane for this item
 const openItemProperties = (item: VisualMediaItem) => {
   selectItem(item);
+  openProperties(item);
 };
 
 // Trash button → confirm-then-delete flow

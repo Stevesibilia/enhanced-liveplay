@@ -32,6 +32,9 @@ export interface VisualMediaItem {
   folder?: string; // optional folder tag for organization
   linkedCueUuid?: string; // optional reference to an AudioItem UUID
   pdfPage?: number; // optional page number for PDFs
+  linkDelay?: number; // signed seconds; >0 audio first, <0 visual first, 0 simultaneous (default: 0)
+  fadeIn?: number; // seconds, non-negative (default: 0)
+  fadeOut?: number; // seconds, non-negative (default: 0)
 }
 
 // Base item interface that all items extend from

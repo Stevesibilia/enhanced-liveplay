@@ -45,6 +45,11 @@
         </div>
         <div class="media-resize-handle" @mousedown="startMediaResize"></div>
         <LiveDisplayPanel />
+        <VisualPropertiesPane
+          v-if="visualPropertiesOpen && visualSelected"
+          :item="visualSelected"
+          @close="closeVisualProperties"
+        />
       </template>
     </div>
     
@@ -61,6 +66,11 @@
 
 <script setup lang="ts">
 const { selectedItem } = useProject();
+const {
+  selectedItem: visualSelected,
+  propertiesOpen: visualPropertiesOpen,
+  closeProperties: closeVisualProperties,
+} = useVisualDisplay();
 const { cartWidth, cartClosed, cartFullscreen, startResize } = useResizablePanel();
 const { progressModal, registerListeners, handleKeydown } = useWorkspaceListeners();
 const { mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
