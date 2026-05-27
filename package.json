@@ -10,7 +10,7 @@
     "dev:electron": "wait-on http://localhost:3000 && electron .",
     "build": "cross-env NODE_ENV=production nuxt generate",
     "build:electron": "cross-env NODE_ENV=production nuxt generate && electron-builder",
-    "electron:build": "electron-builder",
+    "electron:build": "node -e \"try{require('fs').unlinkSync('dist')}catch{}\" && electron-builder",
     "generate": "cross-env NODE_ENV=production nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "electron-builder install-app-deps",
