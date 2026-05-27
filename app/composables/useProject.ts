@@ -106,6 +106,9 @@ export const useProject = () => {
         cartItems: [],
         cartSlotKeys: { ...DEFAULT_CART_SLOT_KEYS },
         cartOnlyItems: [],
+        visualMedia: [],
+        visualFolders: [],
+        visualDisplayEnabled: true,
         theme: { ...DEFAULT_THEME },
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString()
@@ -156,6 +159,11 @@ export const useProject = () => {
           runMigrations(parsed);
           const wasMigrated = versionBefore < CURRENT_SCHEMA_VERSION;
 
+          // Default visualDisplayEnabled to true when absent (additive optional field, no schema bump)
+          if (parsed.visualDisplayEnabled === undefined) {
+            parsed.visualDisplayEnabled = true;
+          }
+
           const project: Project = parsed;
           
           // Set folderPath from the project file location
@@ -187,6 +195,10 @@ export const useProject = () => {
           
           // Load waveforms from disk asynchronously for all audio items
           loadWaveformsAsync(project);
+          
+          // Validate visual media links (clear stale references)
+          const { validateVisualMediaLinks } = useVisualMedia();
+          validateVisualMediaLinks();
           
           return true;
         }
@@ -474,6 +486,19 @@ export const useProject = () => {
     }
   };
 
+  // --- Visual display per-project flag ---
+  // Defaults to true when absent so legacy projects keep current behavior.
+  const visualDisplayEnabled = computed<boolean>(() => {
+    return currentProject.value?.visualDisplayEnabled ?? true;
+  });
+
+  const setVisualDisplayEnabled = (value: boolean) => {
+    if (!currentProject.value) return;
+    if (currentProject.value.visualDisplayEnabled === value) return;
+    currentProject.value.visualDisplayEnabled = value;
+    saveProject();
+  };
+
   return {
     currentProject,
     selectedItem,
@@ -492,6 +517,8 @@ export const useProject = () => {
     findItemByUuid,
     findItemByIndex,
     moveItem,
-    updateIndices
+    updateIndices,
+    visualDisplayEnabled,
+    setVisualDisplayEnabled,
   };
 };

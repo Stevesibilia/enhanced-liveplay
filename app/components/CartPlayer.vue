@@ -32,7 +32,7 @@ import { formatKeyLabel } from '~/composables/useCartHotkeys';
 
 const { currentProject } = useProject();
 const { getCartItem } = useCartItems();
-const { keyMappings, mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
+const { keyMappings } = useCartHotkeys();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 const { t } = useLocalization();
 
@@ -65,7 +65,6 @@ const getKeyLabel = (slotIndex: number): string => {
 
 onMounted(() => {
   if (import.meta.client) {
-    mountHotkeys();
     mountMidi();
     // Initial setup
     updateGridColumns();
@@ -80,7 +79,6 @@ onMounted(() => {
     }
     
     onUnmounted(() => {
-      unmountHotkeys();
       unmountMidi();
       resizeObserver.disconnect();
     });

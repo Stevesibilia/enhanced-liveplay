@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol, clipboard, net } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -10,6 +10,11 @@ const ffmpeg = require('fluent-ffmpeg');
 const { promisify } = require('util');
 const https = require('https');
 const execPromise = promisify(exec);
+
+// Register custom protocol as privileged (must be before app ready)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-media', privileges: { bypassCSP: true, stream: true, supportFetchAPI: true } }
+]);
 
 let ffmpegPath = null;
 let ffmpegAvailable = false;
@@ -194,6 +199,9 @@ let apiServer = null;
 let currentProject = null;
 let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
+let playerWindow = null; // Player display window (second monitor)
+let playerWindowBounds = null; // Session-only bounds persistence
+let visualDisplayEnabled = true; // Per-project flag mirrored from renderer; gates player window menu item
 
 // Guard: resolve a path and verify it lives inside the active project folder.
 // Returns the resolved path on success, or null if outside the project.
@@ -764,6 +772,86 @@ function createStateViewerWindow() {
   });
 }
 
+// Create player window for second-monitor display output
+function createPlayerWindow() {
+  if (playerWindow) {
+    playerWindow.focus();
+    return;
+  }
+
+  const windowOptions = {
+    width: 1280,
+    height: 720,
+    frame: true,
+    backgroundColor: '#000000',
+    title: 'E-LivePlay Player',
+    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      preload: path.join(__dirname, 'preload-player.js'),
+      webSecurity: false // Allow loading local file:// images and PDFs
+    },
+    show: false
+  };
+
+  // Restore previous bounds if available (session-only)
+  if (playerWindowBounds) {
+    windowOptions.x = playerWindowBounds.x;
+    windowOptions.y = playerWindowBounds.y;
+    windowOptions.width = playerWindowBounds.width;
+    windowOptions.height = playerWindowBounds.height;
+  }
+
+  playerWindow = new BrowserWindow(windowOptions);
+
+  // Load the player HTML
+  const playerHtmlPath = path.join(__dirname, 'player.html');
+  playerWindow.loadFile(playerHtmlPath);
+
+  playerWindow.once('ready-to-show', () => {
+    playerWindow.show();
+  });
+
+  // Handle F11 for fullscreen toggle in player window
+  playerWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F11' && input.type === 'keyDown') {
+      event.preventDefault();
+      playerWindow.setFullScreen(!playerWindow.isFullScreen());
+      playerWindow.webContents.send('toggle-fullscreen');
+    }
+  });
+
+  playerWindow.on('closed', () => {
+    playerWindow = null;
+  });
+
+  // Notify main renderer that player window opened
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('player-window-status-changed', true);
+  }
+}
+
+function closePlayerWindow() {
+  if (!playerWindow) return;
+
+  // Persist bounds in memory for session restore
+  try {
+    playerWindowBounds = playerWindow.getBounds();
+  } catch (e) {
+    // Window may already be destroyed
+  }
+
+  playerWindow.close();
+  playerWindow = null;
+
+  // Notify main renderer that player window closed
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('player-window-status-changed', false);
+  }
+}
+
 // Translation strings for menu (default: English)
 // Dynamically load all locale files from the locales directory
 function loadLocaleFiles() {
@@ -912,8 +1000,15 @@ function createMenu(locale = 'en', isDev = false) {
           label: t.fullscreen,
           accelerator: 'F11',
           click: () => {
-            const isFullScreen = mainWindow.isFullScreen();
-            mainWindow.setFullScreen(!isFullScreen);
+            // Toggle fullscreen on the focused window
+            const focusedWindow = BrowserWindow.getFocusedWindow();
+            if (focusedWindow) {
+              focusedWindow.setFullScreen(!focusedWindow.isFullScreen());
+              // Notify player renderer if it's the player window
+              if (focusedWindow === playerWindow) {
+                playerWindow.webContents.send('toggle-fullscreen');
+              }
+            }
           }
         },
         { type: 'separator' },
@@ -922,6 +1017,28 @@ function createMenu(locale = 'en', isDev = false) {
           accelerator: 'CmdOrCtrl+M',
           click: () => {
             mainWindow.webContents.send('menu-toggle-minimal-mode');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Enable Visual Display',
+          type: 'checkbox',
+          checked: visualDisplayEnabled,
+          click: () => {
+            mainWindow.webContents.send('menu-toggle-visual-display');
+          }
+        },
+        {
+          label: 'Open/Close Player Window',
+          accelerator: 'CmdOrCtrl+P',
+          enabled: visualDisplayEnabled,
+          click: () => {
+            if (!visualDisplayEnabled) return;
+            if (playerWindow) {
+              closePlayerWindow();
+            } else {
+              createPlayerWindow();
+            }
           }
         },
         { type: 'separator' },
@@ -1007,6 +1124,20 @@ ipcMain.handle('select-audio-files', async () => {
     properties: ['openFile', 'multiSelections'],
     filters: [
       { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'] }
+    ]
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths;
+  }
+  return null;
+});
+
+ipcMain.handle('select-visual-media-files', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Visual Media', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'pdf'] }
     ]
   });
 
@@ -1189,6 +1320,134 @@ ipcMain.handle('set-current-project', async (event, projectPath) => {
   // Rebuild menu to update enabled/disabled state of menu items
   createMenu(currentLocale, isDevMode);
   return { success: true };
+});
+
+// Renderer reports the active project's visual-display flag (on project load or toggle).
+// Main process mirrors the value to drive menu state and player-window auto-close.
+ipcMain.handle('set-visual-display-enabled', async (event, enabled) => {
+  const next = !!enabled;
+  const wasEnabled = visualDisplayEnabled;
+  visualDisplayEnabled = next;
+  // Auto-close player window when visuals are disabled.
+  if (wasEnabled && !next && playerWindow) {
+    closePlayerWindow();
+  }
+  createMenu(currentLocale, isDevMode);
+  return { success: true };
+});
+
+// Visual media supported extensions
+const VISUAL_MEDIA_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.pdf'];
+
+// Import visual media file — copies to media/visuals/<uuid>_<filename>
+ipcMain.handle('import-visual-media', async (event, projectFolderPath, sourceFilePath, uuid) => {
+  try {
+    const ext = path.extname(sourceFilePath).toLowerCase();
+    if (!VISUAL_MEDIA_EXTENSIONS.includes(ext)) {
+      return { success: false, error: `Unsupported file type: ${ext}. Supported: ${VISUAL_MEDIA_EXTENSIONS.join(', ')}` };
+    }
+
+    const visualsDir = path.join(projectFolderPath, 'media', 'visuals');
+    // Ensure media/visuals/ directory exists
+    if (!fs.existsSync(visualsDir)) {
+      fs.mkdirSync(visualsDir, { recursive: true });
+    }
+
+    const originalName = path.basename(sourceFilePath);
+    const destFileName = `${uuid}_${originalName}`;
+    const destPath = path.join(visualsDir, destFileName);
+
+    fs.copyFileSync(sourceFilePath, destPath);
+
+    const relativePath = `media/visuals/${destFileName}`;
+    return { success: true, mediaFileName: destFileName, mediaPath: relativePath };
+  } catch (error) {
+    console.error('Import visual media error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Read visual media file — returns base64-encoded data
+ipcMain.handle('read-visual-media', async (event, projectFolderPath, mediaPath) => {
+  try {
+    const fullPath = path.join(projectFolderPath, mediaPath);
+    if (!fs.existsSync(fullPath)) {
+      return { success: false, error: 'File not found' };
+    }
+    const data = fs.readFileSync(fullPath);
+    return { success: true, data: data.toString('base64'), mimeType: getMimeType(fullPath) };
+  } catch (error) {
+    console.error('Read visual media error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Helper to get MIME type from file path
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+    '.pdf': 'application/pdf'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
+// Delete visual media file from disk
+ipcMain.handle('delete-visual-media', async (event, projectFolderPath, mediaPath) => {
+  try {
+    const fullPath = path.join(projectFolderPath, mediaPath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Delete visual media error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Player window IPC handlers
+ipcMain.handle('open-player-window', () => {
+  createPlayerWindow();
+  return { success: true };
+});
+
+ipcMain.handle('close-player-window', () => {
+  closePlayerWindow();
+  return { success: true };
+});
+
+ipcMain.handle('get-player-window-status', () => {
+  return { open: !!playerWindow && !playerWindow.isDestroyed() };
+});
+
+// Accepts a PlayerDisplayState payload: { layers: PublishedLayer[] }.
+// (Legacy single-item payloads are no longer emitted by the renderer; the
+// player.html handler keeps a compatibility branch for safety.)
+ipcMain.handle('push-to-player', (event, displayState) => {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.webContents.send('display-state', displayState);
+    return { success: true };
+  }
+  return { success: false, error: 'Player window not open' };
+});
+
+ipcMain.handle('toggle-player-fullscreen', () => {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.setFullScreen(!playerWindow.isFullScreen());
+    playerWindow.webContents.send('toggle-fullscreen');
+    return { success: true };
+  }
+  return { success: false, error: 'Player window not open' };
+});
+
+// Handle F11 from player renderer
+ipcMain.on('player-toggle-fullscreen', () => {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.setFullScreen(!playerWindow.isFullScreen());
+    playerWindow.webContents.send('toggle-fullscreen');
+  }
 });
 
 // Export project to .lpa archive
@@ -1811,6 +2070,14 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
+    // Register protocol to serve local media files safely
+    protocol.handle('local-media', (request) => {
+      const url = request.url.replace('local-media://', '');
+      const filePath = decodeURIComponent(url);
+      console.log('[Protocol] Serving local-media:', filePath);
+      return net.fetch('file://' + filePath);
+    });
+
     // Setup bundled ffmpeg before creating window
     const ffmpegReady = await checkAndSetupFfmpeg();
     if (!ffmpegReady) {

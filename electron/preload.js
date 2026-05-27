@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectProjectFolder: () => ipcRenderer.invoke('select-project-folder'),
   selectProjectFile: () => ipcRenderer.invoke('select-project-file'),
   selectAudioFiles: () => ipcRenderer.invoke('select-audio-files'),
+  selectVisualMediaFiles: () => ipcRenderer.invoke('select-visual-media-files'),
 
   // File operations
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
@@ -90,6 +91,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuChangeLanguage: (callback) => ipcRenderer.on('menu-change-language', callback),
   onMenuShowAbout: (callback) => ipcRenderer.on('menu-show-about', callback),
   onMenuToggleMinimalMode: (callback) => ipcRenderer.on('menu-toggle-minimal-mode', callback),
+  onMenuToggleVisualDisplay: (callback) => ipcRenderer.on('menu-toggle-visual-display', callback),
+  setVisualDisplayEnabled: (enabled) => ipcRenderer.invoke('set-visual-display-enabled', enabled),
 
   // Minimal mode
   enterMinimalMode: () => ipcRenderer.invoke('enter-minimal-mode'),
@@ -138,5 +141,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeMidiConfig: (config) => ipcRenderer.invoke('write-midi-config', config),
 
   // Clipboard
-  writeClipboardText: (text) => ipcRenderer.invoke('write-clipboard-text', text)
+  writeClipboardText: (text) => ipcRenderer.invoke('write-clipboard-text', text),
+
+  // Visual media
+  importVisualMedia: (projectFolderPath, sourceFilePath, uuid) => ipcRenderer.invoke('import-visual-media', projectFolderPath, sourceFilePath, uuid),
+  readVisualMedia: (projectFolderPath, mediaPath) => ipcRenderer.invoke('read-visual-media', projectFolderPath, mediaPath),
+  deleteVisualMedia: (projectFolderPath, mediaPath) => ipcRenderer.invoke('delete-visual-media', projectFolderPath, mediaPath),
+
+  // Player window
+  openPlayerWindow: () => ipcRenderer.invoke('open-player-window'),
+  closePlayerWindow: () => ipcRenderer.invoke('close-player-window'),
+  getPlayerWindowStatus: () => ipcRenderer.invoke('get-player-window-status'),
+  pushToPlayer: (displayState) => ipcRenderer.invoke('push-to-player', displayState),
+  togglePlayerFullscreen: () => ipcRenderer.invoke('toggle-player-fullscreen'),
+  onPlayerWindowStatusChanged: (callback) => ipcRenderer.on('player-window-status-changed', (event, isOpen) => callback(isOpen))
 });

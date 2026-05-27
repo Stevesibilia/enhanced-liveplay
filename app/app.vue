@@ -93,6 +93,14 @@ onMounted(() => {
   registerUpdateListeners();
 });
 
+// Mirror data-theme onto <html> so CSS variables cascade to Teleport portals
+// (the menu/dialog overlays that mount under <body>, outside #app).
+watch(theme, (mode) => {
+  if (import.meta.client) {
+    document.documentElement.setAttribute('data-theme', mode);
+  }
+}, { immediate: true });
+
 // Set initial theme from project
 watch(currentProject, (project) => {
   if (project) {

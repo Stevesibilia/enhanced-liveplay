@@ -1,4 +1,4 @@
-import type { IpcEvent, TriggerItemPayload, StopItemPayload, UpdateInfo, MidiConfig } from './ipc';
+import type { IpcEvent, TriggerItemPayload, StopItemPayload, UpdateInfo, MidiConfig, DisplayState, PlayerDisplayState } from './ipc';
 
 export {};
 
@@ -8,6 +8,7 @@ declare global {
       selectProjectFolder: () => Promise<string | null>;
       selectProjectFile: () => Promise<string | null>;
       selectAudioFiles: () => Promise<string[] | null>;
+      selectVisualMediaFiles: () => Promise<string[] | null>;
       readFile: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       readAudioFile: (filePath: string) => Promise<{ success: boolean; data?: number[]; error?: string }>;
       writeFile: (filePath: string, data: string) => Promise<{ success: boolean; error?: string }>;
@@ -66,6 +67,8 @@ declare global {
       onMenuChangeLanguage: (callback: (event: IpcEvent, locale: string) => void) => void;
       onMenuShowAbout: (callback: () => void) => void;
       onMenuToggleMinimalMode: (callback: () => void) => void;
+      onMenuToggleVisualDisplay: (callback: () => void) => void;
+      setVisualDisplayEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
       enterMinimalMode: () => Promise<void>;
       exitMinimalMode: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;
@@ -89,6 +92,16 @@ declare global {
       readMidiConfig: () => Promise<MidiConfig>;
       writeMidiConfig: (config: MidiConfig) => Promise<{ success: boolean }>;
       writeClipboardText: (text: string) => Promise<{ success: boolean }>;
+      importVisualMedia: (projectFolderPath: string, sourceFilePath: string, uuid: string) => Promise<{ success: boolean; mediaFileName?: string; mediaPath?: string; error?: string }>;
+      readVisualMedia: (projectFolderPath: string, mediaPath: string) => Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }>;
+      deleteVisualMedia: (projectFolderPath: string, mediaPath: string) => Promise<{ success: boolean; error?: string }>;
+      // Player window
+      openPlayerWindow: () => Promise<{ success: boolean }>;
+      closePlayerWindow: () => Promise<{ success: boolean }>;
+      getPlayerWindowStatus: () => Promise<{ open: boolean }>;
+      pushToPlayer: (displayState: PlayerDisplayState | DisplayState) => Promise<{ success: boolean; error?: string }>;
+      togglePlayerFullscreen: () => Promise<{ success: boolean; error?: string }>;
+      onPlayerWindowStatusChanged: (callback: (isOpen: boolean) => void) => void;
     };
   }
 

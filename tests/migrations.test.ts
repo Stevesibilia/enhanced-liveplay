@@ -99,4 +99,38 @@ describe('runMigrations', () => {
     expect(project.items[0].children[0].fadeOutDuration).toBe(1.0);
     expect(project.items[0].children[0].crossFade).toBe(0);
   });
+
+  it('migrates v1 project to v2 with visualMedia and visualFolders', () => {
+    const project: any = {
+      name: 'V1Project',
+      version: '1.0.0',
+      schemaVersion: 1,
+      items: [],
+      cartOnlyItems: [],
+      cartSlotKeys: {},
+    };
+
+    runMigrations(project);
+
+    expect(project.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(project.visualMedia).toEqual([]);
+    expect(project.visualFolders).toEqual([]);
+  });
+
+  it('does not overwrite existing visualMedia on migration', () => {
+    const project: any = {
+      name: 'V1WithVisuals',
+      version: '1.0.0',
+      schemaVersion: 1,
+      items: [],
+      cartOnlyItems: [],
+      visualMedia: [{ uuid: 'existing' }],
+      visualFolders: ['Maps'],
+    };
+
+    runMigrations(project);
+
+    expect(project.visualMedia).toEqual([{ uuid: 'existing' }]);
+    expect(project.visualFolders).toEqual(['Maps']);
+  });
 });

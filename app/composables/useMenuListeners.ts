@@ -1,3 +1,4 @@
+import { watch } from 'vue';
 import type { Project } from '~/types/project';
 
 /**
@@ -5,7 +6,7 @@ import type { Project } from '~/types/project';
  * accent color, language, about, open-project-file, minimal mode).
  */
 export const useMenuListeners = () => {
-  const { currentProject, saveProject, openProject } = useProject();
+  const { currentProject, saveProject, openProject, visualDisplayEnabled, setVisualDisplayEnabled } = useProject();
   const { setLocale, currentLocale } = useLocalization();
   const theme = useState('theme', () => 'dark');
 
@@ -49,6 +50,21 @@ export const useMenuListeners = () => {
     window.electronAPI.onMenuToggleMinimalMode(() => {
       toggleMinimalMode();
     });
+
+    window.electronAPI.onMenuToggleVisualDisplay(() => {
+      setVisualDisplayEnabled(!visualDisplayEnabled.value);
+    });
+
+    // Keep the main process menu state in sync with the active project's flag.
+    watch(
+      visualDisplayEnabled,
+      (enabled) => {
+        if (window.electronAPI?.setVisualDisplayEnabled) {
+          window.electronAPI.setVisualDisplayEnabled(enabled);
+        }
+      },
+      { immediate: true }
+    );
 
     window.electronAPI.onOpenProjectFile((_event, data) => {
       try {
