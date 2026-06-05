@@ -48,3 +48,31 @@ generate:
 # Preview Nuxt build
 preview:
     npm run preview
+
+# Build the C++ server binary via Docker (output: server/dist/liveplay-server)
+build-server:
+    mkdir -p server/dist
+    docker build -f server/Dockerfile.build -t liveplay-server-builder .
+    docker run --rm -v "$(pwd)/server/dist:/out" liveplay-server-builder
+
+# Build C++ server in debug mode via Docker (output: server/dist/liveplay-server-debug)
+build-server-debug:
+    mkdir -p server/dist
+    docker build -f server/Dockerfile.build -t liveplay-server-builder .
+    docker run --rm -v "$(pwd)/server/dist:/out" \
+        -e CMAKE_BUILD_TYPE=Debug \
+        liveplay-server-builder \
+        sh -c "cmake -S server -B server/build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+               -DVCPKG_TARGET_TRIPLET=x64-linux \
+               -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+            && cmake --build server/build-debug --parallel \
+            && cp server/build-debug/liveplay-server /out/liveplay-server-debug \
+            && echo 'Debug build complete'"
+
+# Format markdown files
+format-md +files:
+    npx --yes prettier@3 --write {{files}}
+
+# Check markdown formatting without writing
+format-md-check +files:
+    npx --yes prettier@3 --check {{files}}

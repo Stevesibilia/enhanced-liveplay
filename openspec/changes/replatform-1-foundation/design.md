@@ -19,7 +19,7 @@ Upstream `server/` uses CMake + vcpkg manifest mode (`vcpkg.json`: nlohmann-json
 ## Decisions
 
 1. **Reverse the base** — branch from `upstream/main`, not merge upstream into this tree. Keeps upstream's tested server intact; fork features become a patch set.
-2. **Build via CMake preset `default`** (Ninja + vcpkg toolchain) — matches upstream's documented path; `VCPKG_ROOT` must be set.
+2. **Build via Docker container** (`server/Dockerfile.build`) — mirrors upstream CI Linux environment exactly (ubuntu 24.04, ninja, pkg-config, libasound2-dev, libpulse-dev, libjack-jackd2-dev, libx11-dev, vcpkg). Avoids host pollution; only Docker required on the dev machine. Binary extracted to `server/dist/liveplay-server` via volume mount. `just build-server` is the single command. CMake preset `default` (Ninja + vcpkg) is used inside the container.
 3. **Validate the bundled-local-server topology first** — it is the fork's real deployment (each host runs client + local server, shared project folder). Remote-only topology is out of scope.
 4. **Treat toolchain as the gating risk** — if a platform won't build, record the fix here before declaring the phase done.
 

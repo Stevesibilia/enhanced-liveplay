@@ -6,13 +6,12 @@
 - [x] 1.2 Create branch `feat/replatform-server` from `upstream/main`
 - [x] 1.3 Confirm tree has `client/` + `server/` + `scripts/` (upstream monorepo shape)
 
-## Group 2: Build Toolchain
+## Group 2: Build Toolchain (via Docker)
 
-- [ ] 2.1 Install prerequisites: Node 20 LTS, CMake 3.21+, Ninja, C++20 toolchain
-- [ ] 2.2 Install vcpkg; export `VCPKG_ROOT`
-- [ ] 2.3 Configure server: `cmake --preset default` in `server/`
-- [ ] 2.4 Build server: `cmake --build --preset default`
-- [ ] 2.5 Record any per-platform fixes needed in design.md
+- [ ] 2.1 Ensure Docker is installed on the dev host (`docker --version`)
+- [ ] 2.2 Build server binary: `just build-server` (builds `server/Dockerfile.build` image, outputs to `server/dist/liveplay-server`)
+- [ ] 2.3 Confirm binary runs: `./server/dist/liveplay-server --help` or equivalent smoke
+- [ ] 2.4 Record any Docker/build fixes needed in design.md
 
 ## Group 3: Client ↔ Server Runtime
 

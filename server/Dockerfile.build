@@ -1,0 +1,49 @@
+# Build-only image for the LivePlay C++ server.
+# Mirrors the upstream CI Linux environment exactly.
+# Usage (from repo root):
+#   docker build -f server/Dockerfile.build -t liveplay-server-builder .
+#   docker run --rm -v "$PWD/server/dist:/out" liveplay-server-builder
+# The server binary is written to server/dist/liveplay-server on the host.
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV VCPKG_ROOT=/vcpkg
+ENV VCPKG_FORCE_SYSTEM_BINARIES=1
+
+# --- system deps (mirrors upstream build-release.yml Linux step) ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    ninja-build \
+    pkg-config \
+    git \
+    curl \
+    zip \
+    unzip \
+    tar \
+    ca-certificates \
+    libasound2-dev \
+    libpulse-dev \
+    libjack-jackd2-dev \
+    libx11-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# --- vcpkg (pinned to the baseline commit in server/vcpkg.json) ---
+RUN git clone https://github.com/microsoft/vcpkg.git /vcpkg \
+  && /vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+# --- copy server source ---
+WORKDIR /src
+COPY server/ ./server/
+
+# --- configure + build ---
+RUN cmake -S server -B server/build \
+      -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DVCPKG_TARGET_TRIPLET=x64-linux \
+      -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+  && cmake --build server/build --parallel
+
+# --- extract binary to /out (mounted from host) ---
+CMD ["sh", "-c", "cp server/build/liveplay-server /out/liveplay-server && echo 'Build complete: /out/liveplay-server'"]
