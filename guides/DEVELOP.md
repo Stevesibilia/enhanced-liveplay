@@ -4,6 +4,73 @@ This document is for developers who want to contribute to LivePlay, understand i
 
 ---
 
+## Replatform Branch: Development Setup (feat/replatform-server)
+
+> This section applies to the `feat/replatform-server` branch which uses the upstream
+> v2.1.1 client-server architecture (C++20 engine + Electron/Nuxt client).
+> See `guides/REPLATFORM-MIGRATION-PLAN.md` for the full migration context.
+
+### Architecture
+
+```
+server/   C++20 audio engine (miniaudio, Crow REST/WS, TagLib)
+client/   Electron + Nuxt remote-control client
+```
+
+Client and server communicate via:
+
+- REST `http://localhost:4480` — project data, cues, waveforms, file ops
+- WebSocket `ws://localhost:4480/ws` — ~60 Hz meters + transport events
+- UDP `:4481` — LAN auto-discovery (single-host: not needed)
+
+### Prerequisites
+
+| Requirement                   | Notes                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| **Docker**                    | Required to build the C++ server binary                                   |
+| **Node.js 20+**               | Client dependencies (`client/` uses npm)                                  |
+| `libasound2t64` + `libpulse0` | Linux: runtime audio libs (dev packages NOT needed; Docker handles those) |
+
+Everything else (CMake, Ninja, vcpkg, C++ toolchain) runs inside Docker — nothing to install on the host.
+
+### First-time Setup
+
+```bash
+# 1. Build the C++ server binary (first run ~10 min; Docker layer-cached after)
+just build-server
+# Output: server/build/liveplay-server
+
+# 2. Install client Node dependencies
+just install
+
+# 3. Start dev mode (Nuxt + Electron)
+just dev
+```
+
+`just dev` sets `ELECTRON_DISABLE_SANDBOX=1` automatically on Linux — always use `just dev`, not `npm run dev` directly from `client/`.
+
+### Rebuilding the Server
+
+Only needed when `server/` source changes:
+
+```bash
+just build-server        # release build → server/build/liveplay-server
+just build-server-debug  # debug build   → server/build/liveplay-server-debug
+```
+
+### Useful `just` Recipes
+
+```
+just dev              Start Nuxt + Electron (sandbox-safe on Linux)
+just dev-electron     Electron only (requires Nuxt already on :3000)
+just dev-nuxt         Nuxt only
+just build-server     Build C++ server via Docker
+just install          Install client npm dependencies
+just format-md <f>    Format markdown files via Prettier
+```
+
+---
+
 ## 🏗️ Architecture Overview
 
 ### Technology Stack
@@ -24,6 +91,7 @@ This document is for developers who want to contribute to LivePlay, understand i
 ### Key Dependencies
 
 **Main Process (Electron)**:
+
 - `electron` - Desktop app framework
 - `express` - REST API server
 - `fluent-ffmpeg` - Audio processing
@@ -31,6 +99,7 @@ This document is for developers who want to contribute to LivePlay, understand i
 - `electron-updater` - Auto-update system
 
 **Renderer Process (Vue/Nuxt)**:
+
 - `nuxt` - Vue meta-framework
 - `vue` - Reactive UI framework
 - `howler` - Web Audio API wrapper
@@ -123,6 +192,7 @@ npm run dev
 ```
 
 This will:
+
 1. Start Nuxt dev server on `http://localhost:3000`
 2. Wait for server to be ready
 3. Launch Electron with DevTools open
@@ -150,19 +220,19 @@ This will:
 Handles all project-related operations:
 
 ```typescript
-const { 
-  currentProject,      // Ref<Project | null>
-  selectedItem,        // Ref<BaseItem | null>
-  createNewProject,    // (name, path) => Promise<void>
-  openProject,         // (filePath) => Promise<void>
-  saveProject,         // () => Promise<void>
-  closeProject,        // () => void
-  addItem,             // (item, parentIndex?) => void
-  removeItem,          // (uuid) => void
-  findItemByUuid,      // (uuid) => BaseItem | null
-  findItemByIndex,     // (index[]) => BaseItem | null
-  moveItem,            // (from[], to[]) => void
-  updateItemProperty   // (uuid, key, value) => void
+const {
+  currentProject, // Ref<Project | null>
+  selectedItem, // Ref<BaseItem | null>
+  createNewProject, // (name, path) => Promise<void>
+  openProject, // (filePath) => Promise<void>
+  saveProject, // () => Promise<void>
+  closeProject, // () => void
+  addItem, // (item, parentIndex?) => void
+  removeItem, // (uuid) => void
+  findItemByUuid, // (uuid) => BaseItem | null
+  findItemByIndex, // (index[]) => BaseItem | null
+  moveItem, // (from[], to[]) => void
+  updateItemProperty, // (uuid, key, value) => void
 } = useProject();
 ```
 
@@ -182,14 +252,14 @@ Manages all audio playback using Howler.js:
 
 ```typescript
 const {
-  activeCues,          // Map<uuid, ActiveCue>
-  initAudioContext,    // () => void
-  playCue,             // (item) => void
-  stopCue,             // (uuid) => void
-  stopAllCues,         // () => void
-  triggerByUuid,       // (uuid) => void
-  triggerByIndex,      // (index[]) => void
-  estimateAudioLevel   // (volume, item, time) => number
+  activeCues, // Map<uuid, ActiveCue>
+  initAudioContext, // () => void
+  playCue, // (item) => void
+  stopCue, // (uuid) => void
+  stopAllCues, // () => void
+  triggerByUuid, // (uuid) => void
+  triggerByIndex, // (index[]) => void
+  estimateAudioLevel, // (volume, item, time) => number
 } = useAudioEngine();
 ```
 
@@ -209,18 +279,18 @@ const {
 ```typescript
 const applyDucking = (newCue: ActiveCue) => {
   switch (newCue.item.duckingBehavior.mode) {
-    case 'stopAll':
+    case "stopAll":
       stopAllCues();
       break;
-    case 'duckOthers':
-      activeCues.forEach(cue => {
+    case "duckOthers":
+      activeCues.forEach((cue) => {
         if (cue.uuid !== newCue.uuid) {
           cue.originalVolume = cue.howl.volume();
           cue.howl.volume(cue.originalVolume * duckLevel);
         }
       });
       break;
-    case 'noDucking':
+    case "noDucking":
       // Do nothing
       break;
   }
@@ -233,15 +303,16 @@ Full internationalization system with **20 languages** and **RTL support**:
 
 ```typescript
 const {
-  currentLocale,       // Ref<'en' | 'el' | 'fr' | 'es' | 'it' | 'pt' | 'ar' | 'fa' | 'de' | 'sv' | 'no' | 'ru' | 'ja' | 'zh' | 'hi' | 'bn' | 'tr' | 'ko' | 'sq' | 'ur'>
-  t,                   // (key) => string
-  setLocale,           // (locale) => void
-  getDirection,        // () => 'ltr' | 'rtl'
-  availableLocales     // { code, name, direction }[]
+  currentLocale, // Ref<'en' | 'el' | 'fr' | 'es' | 'it' | 'pt' | 'ar' | 'fa' | 'de' | 'sv' | 'no' | 'ru' | 'ja' | 'zh' | 'hi' | 'bn' | 'tr' | 'ko' | 'sq' | 'ur'>
+  t, // (key) => string
+  setLocale, // (locale) => void
+  getDirection, // () => 'ltr' | 'rtl'
+  availableLocales, // { code, name, direction }[]
 } = useLocalization();
 ```
 
 **Supported Languages**:
+
 - Western European: English (`en`), Greek (`el`), French (`fr`), Spanish (`es`), Italian (`it`), Portuguese (`pt`), German (`de`), Swedish (`sv`), Norwegian (`no`), Albanian (`sq`)
 - Slavic: Russian (`ru`)
 - East Asian: Japanese (`ja`), Chinese (`zh`), Korean (`ko`)
@@ -250,16 +321,19 @@ const {
 - RTL layout support for Arabic, Farsi, and Urdu
 
 **Translation Keys**:
+
 - Nested object structure: `t('playlist.title')`
 - Fallback to English if key missing
 - Auto-saves to `localStorage('liveplay-locale')`
 
 **Locale Files** (`locales/*.json`):
+
 - Include `_metadata` with `code`, `name`, `nativeName`, `direction`
 - All translations in structured JSON
 - Dynamically loaded in both renderer and main process
 
 **Dynamic Menu Generation**:
+
 - Electron menu automatically generated from locale files
 - Language submenu populated from `_metadata.nativeName`
 - No hardcoded strings in menu definitions
@@ -269,24 +343,27 @@ See `INTERNATIONALIZATION.md` for detailed i18n documentation.
 ### 4. IPC Communication
 
 **Main → Renderer** (Events):
+
 ```javascript
 // In electron/main.js
-mainWindow.webContents.send('menu-new-project');
-mainWindow.webContents.send('update-available', info);
-mainWindow.webContents.send('trigger-item', { uuid });
+mainWindow.webContents.send("menu-new-project");
+mainWindow.webContents.send("update-available", info);
+mainWindow.webContents.send("trigger-item", { uuid });
 ```
 
 **Renderer → Main** (Invocations):
+
 ```javascript
 // In preload.js
-contextBridge.exposeInMainWorld('electronAPI', {
-  selectProjectFolder: () => ipcRenderer.invoke('select-project-folder'),
-  readFile: (path) => ipcRenderer.invoke('read-file', path),
+contextBridge.exposeInMainWorld("electronAPI", {
+  selectProjectFolder: () => ipcRenderer.invoke("select-project-folder"),
+  readFile: (path) => ipcRenderer.invoke("read-file", path),
   // ... more handlers
 });
 ```
 
 **Available IPC Handlers**:
+
 - `select-project-folder` - Open folder picker
 - `select-project-file` - Open .liveplay file picker
 - `select-audio-files` - Select audio files to import
@@ -320,6 +397,7 @@ GET  /api/project/info              // Get current project data
 ```
 
 **Example Usage**:
+
 ```bash
 curl http://localhost:8080/api/trigger/index/0
 curl http://localhost:8080/api/stop/uuid/abc-123-def-456
@@ -330,27 +408,29 @@ curl http://localhost:8080/api/stop/uuid/abc-123-def-456
 ## 📊 Data Models
 
 ### BaseItem (Abstract)
+
 ```typescript
 interface BaseItem {
-  uuid: string;              // v4 UUID
-  index: number[];           // [0,1,2] = third item in second group
-  displayName: string;       // User-visible name
-  color: string;             // Hex color (e.g., "#0066FF")
-  type: 'audio' | 'group';
+  uuid: string; // v4 UUID
+  index: number[]; // [0,1,2] = third item in second group
+  displayName: string; // User-visible name
+  color: string; // Hex color (e.g., "#0066FF")
+  type: "audio" | "group";
 }
 ```
 
 ### AudioItem
+
 ```typescript
 interface AudioItem extends BaseItem {
-  type: 'audio';
-  mediaFileName: string;        // "song.mp3"
-  mediaPath: string;            // Absolute path
-  waveformPath: string;         // Path to waveform JSON
-  inPoint: number;              // Trim start (seconds)
-  outPoint: number;             // Trim end (seconds)
-  volume: number;               // 0-2 (1 = 100%)
-  duration: number;             // Total duration
+  type: "audio";
+  mediaFileName: string; // "song.mp3"
+  mediaPath: string; // Absolute path
+  waveformPath: string; // Path to waveform JSON
+  inPoint: number; // Trim start (seconds)
+  outPoint: number; // Trim end (seconds)
+  volume: number; // 0-2 (1 = 100%)
+  duration: number; // Total duration
   endBehavior: EndBehavior;
   startBehavior: StartBehavior;
   duckingBehavior: DuckingBehavior;
@@ -359,30 +439,32 @@ interface AudioItem extends BaseItem {
 ```
 
 ### GroupItem
+
 ```typescript
 interface GroupItem extends BaseItem {
-  type: 'group';
-  children: (AudioItem | GroupItem)[];  // Recursive
+  type: "group";
+  children: (AudioItem | GroupItem)[]; // Recursive
   startBehavior: GroupStartBehavior;
   endBehavior: EndBehavior;
-  isExpanded: boolean;           // UI state
+  isExpanded: boolean; // UI state
 }
 ```
 
 ### Project
+
 ```typescript
 interface Project {
   name: string;
-  version: string;               // "1.0.0"
-  folderPath: string;            // Absolute path
+  version: string; // "1.0.0"
+  folderPath: string; // Absolute path
   items: (AudioItem | GroupItem)[];
-  cartItems: CartItem[];         // { slot: number, itemUuid: string }
+  cartItems: CartItem[]; // { slot: number, itemUuid: string }
   theme: {
-    mode: 'light' | 'dark';
+    mode: "light" | "dark";
     accentColor: string;
   };
-  createdAt: string;             // ISO 8601
-  lastModified: string;          // ISO 8601
+  createdAt: string; // ISO 8601
+  lastModified: string; // ISO 8601
 }
 ```
 
@@ -410,7 +492,7 @@ All colors and spacing use CSS custom properties:
   // ...
 }
 
-[data-theme='light'] {
+[data-theme="light"] {
   --color-background: #ffffff;
   --color-surface: #f4f4f4;
   --color-text-primary: #161616;
@@ -418,7 +500,7 @@ All colors and spacing use CSS custom properties:
   // ...
 }
 
-[data-theme='dark'] {
+[data-theme="dark"] {
   --color-background: #161616;
   --color-surface: #262626;
   --color-text-primary: #f4f4f4;
@@ -431,20 +513,17 @@ All colors and spacing use CSS custom properties:
 
 ```typescript
 // Set custom accent color
-document.documentElement.style.setProperty(
-  '--color-accent-custom',
-  '#0066FF'
-);
+document.documentElement.style.setProperty("--color-accent-custom", "#0066FF");
 ```
 
 ### Theme Toggle
 
 ```typescript
 // In app.vue
-const theme = useState('theme', () => 'dark');
+const theme = useState("theme", () => "dark");
 
 // Toggle
-theme.value = theme.value === 'dark' ? 'light' : 'dark';
+theme.value = theme.value === "dark" ? "light" : "dark";
 ```
 
 ---
@@ -463,6 +542,7 @@ See [UPDATE_SYSTEM.md](UPDATE_SYSTEM.md) for comprehensive documentation.
 6. App quits and installs new version
 
 **Key Files**:
+
 - `electron/main.js` - Auto-updater configuration
 - `components/UpdateModal.vue` - Update UI
 - `package.json` - Publish configuration
@@ -474,10 +554,11 @@ See [UPDATE_SYSTEM.md](UPDATE_SYSTEM.md) for comprehensive documentation.
 ### Adding a New Component
 
 1. **Create Component** (`components/MyComponent.vue`):
+
 ```vue
 <template>
   <div class="my-component">
-    <h2>{{ t('myComponent.title') }}</h2>
+    <h2>{{ t("myComponent.title") }}</h2>
   </div>
 </template>
 
@@ -495,6 +576,7 @@ const { currentProject } = useProject();
 ```
 
 2. **Add Translations** (`locales/en.json`, `locales/el.json`):
+
 ```json
 {
   "myComponent": {
@@ -504,6 +586,7 @@ const { currentProject } = useProject();
 ```
 
 3. **Import in Parent**:
+
 ```vue
 <template>
   <MyComponent />
@@ -513,20 +596,23 @@ const { currentProject } = useProject();
 ### Adding a New Item Type
 
 1. **Define Type** (`types/project.ts`):
+
 ```typescript
 export interface VideoItem extends BaseItem {
-  type: 'video';
+  type: "video";
   videoPath: string;
   // ...
 }
 ```
 
 2. **Update Unions**:
+
 ```typescript
 export type PlaylistItem = AudioItem | GroupItem | VideoItem;
 ```
 
 3. **Add Playback Logic** (`composables/useAudioEngine.ts`):
+
 ```typescript
 const playVideo = (item: VideoItem) => {
   // Implementation
@@ -538,22 +624,25 @@ const playVideo = (item: VideoItem) => {
 ### Adding a New IPC Handler
 
 1. **Main Process** (`electron/main.js`):
+
 ```javascript
-ipcMain.handle('my-new-handler', async (event, arg) => {
+ipcMain.handle("my-new-handler", async (event, arg) => {
   // Implementation
   return { success: true, data: result };
 });
 ```
 
 2. **Preload** (`electron/preload.js`):
+
 ```javascript
-contextBridge.exposeInMainWorld('electronAPI', {
+contextBridge.exposeInMainWorld("electronAPI", {
   // ...
-  myNewHandler: (arg) => ipcRenderer.invoke('my-new-handler', arg)
+  myNewHandler: (arg) => ipcRenderer.invoke("my-new-handler", arg),
 });
 ```
 
 3. **Types** (`types/global.d.ts`):
+
 ```typescript
 interface Window {
   electronAPI: {
@@ -564,8 +653,9 @@ interface Window {
 ```
 
 4. **Use in Renderer**:
+
 ```typescript
-const result = await window.electronAPI.myNewHandler('test');
+const result = await window.electronAPI.myNewHandler("test");
 ```
 
 ---
@@ -583,6 +673,7 @@ npm run build:electron
 ```
 
 **Outputs** (in `dist-electron/`):
+
 - Windows: `LivePlay Setup x.x.x.exe` + `latest.yml`
 - macOS: `LivePlay-x.x.x.dmg` + `latest-mac.yml`
 - Linux: `LivePlay-x.x.x.AppImage` + `latest-linux.yml`
@@ -590,6 +681,7 @@ npm run build:electron
 ### Publishing Updates
 
 1. **Update Version** (`package.json`):
+
 ```json
 {
   "version": "1.2.0"
@@ -597,6 +689,7 @@ npm run build:electron
 ```
 
 2. **Build All Platforms**:
+
 ```bash
 npm run build:electron
 ```
@@ -637,14 +730,14 @@ npm run dev
 
 ```javascript
 // Main process
-ipcMain.handle('my-handler', async (event, arg) => {
-  console.log('[MAIN] Received:', arg);
+ipcMain.handle("my-handler", async (event, arg) => {
+  console.log("[MAIN] Received:", arg);
   return { success: true };
 });
 
 // Renderer process
-const result = await window.electronAPI.myHandler('test');
-console.log('[RENDERER] Result:', result);
+const result = await window.electronAPI.myHandler("test");
+console.log("[RENDERER] Result:", result);
 ```
 
 ### Audio Issues
@@ -652,9 +745,9 @@ console.log('[RENDERER] Result:', result);
 ```typescript
 // In useAudioEngine.ts, add logging:
 const playCue = (item: AudioItem) => {
-  console.log('Playing cue:', item.displayName);
-  console.log('Howl instance:', howl);
-  console.log('Duration:', howl.duration());
+  console.log("Playing cue:", item.displayName);
+  console.log("Howl instance:", howl);
+  console.log("Duration:", howl.duration());
 };
 ```
 
@@ -745,6 +838,7 @@ const emit = defineEmits<{
 ### Automated Testing (TODO)
 
 Consider adding:
+
 - **Vitest** for unit tests
 - **Playwright** for E2E tests
 - **Testing Library** for component tests
@@ -770,9 +864,7 @@ Consider adding:
 const largeData = shallowRef<AudioItem[]>([]);
 
 // Good - computed for derived value
-const playingCues = computed(() => 
-  Array.from(activeCues.value.values())
-);
+const playingCues = computed(() => Array.from(activeCues.value.values()));
 ```
 
 ### Rendering Optimization
@@ -815,9 +907,9 @@ const playingCues = computed(() =>
 
 ```javascript
 // Good - validate input
-ipcMain.handle('read-file', async (event, filePath) => {
+ipcMain.handle("read-file", async (event, filePath) => {
   if (!isValidPath(filePath)) {
-    return { success: false, error: 'Invalid path' };
+    return { success: false, error: "Invalid path" };
   }
   // ...
 });
@@ -873,6 +965,7 @@ Fixes #123
 ```
 
 **Types**:
+
 - `Add:` New feature
 - `Fix:` Bug fix
 - `Update:` Modify existing feature

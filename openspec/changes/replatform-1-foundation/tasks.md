@@ -16,13 +16,13 @@
 ## Group 3: Client ↔ Server Runtime
 
 - [x] 3.1 `npm install` in `client/`; binary at `server/build/liveplay-server`
-- [ ] 3.2 Confirm client spawns local server (`LocalServerStatus` shows running)
+- [x] 3.2 Confirm client spawns local server (`LocalServerStatus` shows running)
 - [x] 3.3 Confirm REST reachable: `GET http://localhost:4480/api/health` → `{"name":"liveplay-server","ok":true}`
-- [ ] 3.4 Confirm WebSocket `/ws` meters stream (StereoMeter updates)
-- [ ] 3.5 Confirm UDP `:4481` discovery beacon (optional on single host)
+- [x] 3.4 Confirm WebSocket `/ws` meters stream (StereoMeter updates)
+- [x] 3.5 Confirm UDP `:4481` discovery beacon (optional on single host)
 
 ## Group 4: Verification
 
-- [ ] 4.1 Open a sample project; play a cue; confirm audio + meters
-- [ ] 4.2 Document toolchain prerequisites in `guides/DEVELOP.md` (or new section)
-- [ ] 4.3 Sign off: server builds + client connects on the dev platform
+- [x] 4.1 Open a sample project; play a cue; confirm audio + meters
+- [x] 4.2 Document toolchain prerequisites in `guides/DEVELOP.md` (replatform section added)
+- [x] 4.3 Sign off: server builds + client connects on the dev platform
