@@ -7,53 +7,53 @@ electron_sandbox_env := if os() == "linux" { "ELECTRON_DISABLE_SANDBOX=1" } else
 default:
     @just --list
 
-# Install dependencies
+# Install client dependencies
 install:
-    npm install
+    cd client && npm install
 
-# Ensure node_modules are installed
+# Ensure client node_modules are installed
 _ensure-deps:
-    @[ -d node_modules ] || npm install
+    @[ -d client/node_modules ] || (cd client && npm install)
 
-# Start dev mode (Nuxt + Electron)
+# Start dev mode (Nuxt + Electron) — always run from repo root
 dev: _ensure-deps
-    npx concurrently "npm run dev:nuxt" "{{electron_sandbox_env}} npm run dev:electron"
+    cd client && npx concurrently "npm run dev:nuxt" "{{electron_sandbox_env}} npm run dev:electron"
 
 # Start dev mode with a project auto-opened and CDP debugging enabled
-dev-debug project_path="/Users/steve/Documents/test-liveplay.liveplay" cdp_port="9222": _ensure-deps
-    npx concurrently \
+dev-debug project_path="" cdp_port="9222": _ensure-deps
+    cd client && npx concurrently \
         "npm run dev:nuxt" \
         "wait-on http://localhost:3000 && {{electron_sandbox_env}} LIVEPLAY_PROJECT={{project_path}} npx electron . --remote-debugging-port={{cdp_port}}"
 
 # Start only the Nuxt dev server
 dev-nuxt:
-    npm run dev:nuxt
+    cd client && npm run dev:nuxt
 
-# Start only Electron (requires Nuxt already running)
+# Start only Electron (requires Nuxt already running on :3000)
 dev-electron:
-    npm run dev:electron
+    cd client && {{electron_sandbox_env}} npm run dev:electron
 
 # Build Nuxt static output (production)
 build:
-    npm run build
+    cd client && npm run build
 
 # Build distributable Electron app
 build-electron:
-    npm run build:electron
+    cd client && npm run build:electron
 
 # Generate Nuxt static output
 generate:
-    npm run generate
+    cd client && npm run generate
 
 # Preview Nuxt build
 preview:
-    npm run preview
+    cd client && npm run preview
 
-# Build the C++ server binary via Docker (output: server/dist/liveplay-server)
+# Build the C++ server binary via Docker (output: server/build/liveplay-server)
 build-server:
-    mkdir -p server/dist
+    mkdir -p server/build
     docker build -f server/Dockerfile.build -t liveplay-server-builder .
-    docker run --rm -v "$(pwd)/server/dist:/out" liveplay-server-builder
+    docker run --rm -v "$(pwd)/server/build:/out" liveplay-server-builder
 
 # Build C++ server in debug mode via Docker (output: server/dist/liveplay-server-debug)
 build-server-debug:

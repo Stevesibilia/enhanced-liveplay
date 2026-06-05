@@ -23,6 +23,10 @@ Upstream `server/` uses CMake + vcpkg manifest mode (`vcpkg.json`: nlohmann-json
 3. **Validate the bundled-local-server topology first** — it is the fork's real deployment (each host runs client + local server, shared project folder). Remote-only topology is out of scope.
 4. **Treat toolchain as the gating risk** — if a platform won't build, record the fix here before declaring the phase done.
 
+## Build Notes
+
+- **2026-06-05, Linux x86-64**: clean first build, no patches needed. Binary: 6.1 MB ELF64 dynamically linked. `--help` confirmed working.
+
 ## Risks / Trade-offs
 
 - [vcpkg dependency build is slow/fragile in CI] → addressed with GHA vcpkg cache in Phase 2; locally a one-time cost.

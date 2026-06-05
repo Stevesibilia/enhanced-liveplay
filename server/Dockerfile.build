@@ -3,7 +3,8 @@
 # Usage (from repo root):
 #   docker build -f server/Dockerfile.build -t liveplay-server-builder .
 #   docker run --rm -v "$PWD/server/dist:/out" liveplay-server-builder
-# The server binary is written to server/dist/liveplay-server on the host.
+# The server binary is written to server/build/liveplay-server on the host
+# (matches electron/main.js dev-mode path resolution).
 
 FROM ubuntu:24.04
 
@@ -46,4 +47,4 @@ RUN cmake -S server -B server/build \
   && cmake --build server/build --parallel
 
 # --- extract binary to /out (mounted from host) ---
-CMD ["sh", "-c", "cp server/build/liveplay-server /out/liveplay-server && echo 'Build complete: /out/liveplay-server'"]
+CMD ["sh", "-c", "cp server/build/liveplay-server /out/liveplay-server && echo 'Build complete: /out/liveplay-server (server/build/liveplay-server on host)'"]

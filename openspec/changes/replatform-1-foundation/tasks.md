@@ -8,16 +8,16 @@
 
 ## Group 2: Build Toolchain (via Docker)
 
-- [ ] 2.1 Ensure Docker is installed on the dev host (`docker --version`)
-- [ ] 2.2 Build server binary: `just build-server` (builds `server/Dockerfile.build` image, outputs to `server/dist/liveplay-server`)
-- [ ] 2.3 Confirm binary runs: `./server/dist/liveplay-server --help` or equivalent smoke
-- [ ] 2.4 Record any Docker/build fixes needed in design.md
+- [x] 2.1 Ensure Docker is installed on the dev host (`docker --version`)
+- [x] 2.2 Build server binary: `just build-server` (builds `server/Dockerfile.build` image, outputs to `server/dist/liveplay-server`)
+- [x] 2.3 Confirm binary runs: `./server/dist/liveplay-server --help` or equivalent smoke
+- [x] 2.4 Record any Docker/build fixes needed in design.md
 
 ## Group 3: Client ↔ Server Runtime
 
-- [ ] 3.1 `npm install` at root; build/run client (`npm run dev` or generate)
+- [x] 3.1 `npm install` in `client/`; binary at `server/build/liveplay-server`
 - [ ] 3.2 Confirm client spawns local server (`LocalServerStatus` shows running)
-- [ ] 3.3 Confirm REST reachable: `GET http://localhost:4480/api/health`
+- [x] 3.3 Confirm REST reachable: `GET http://localhost:4480/api/health` → `{"name":"liveplay-server","ok":true}`
 - [ ] 3.4 Confirm WebSocket `/ws` meters stream (StereoMeter updates)
 - [ ] 3.5 Confirm UDP `:4481` discovery beacon (optional on single host)
 
