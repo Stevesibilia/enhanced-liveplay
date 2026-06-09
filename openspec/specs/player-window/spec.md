@@ -18,30 +18,44 @@ The system SHALL allow opening and closing a player window from the main window.
 - **THEN** the player window SHALL be destroyed and display state reset to black
 
 ### Requirement: Display state communication
-The main renderer SHALL send display state updates to the player window via IPC through the main process. The display state SHALL be an object with type ('black', 'image', or 'pdf'), optional mediaPath, and optional pdfPage.
+The main renderer SHALL send display state updates to the player window via IPC through the main process. The main process SHALL cache the most recently pushed display state and SHALL guarantee delivery to the player renderer once that renderer is ready, buffering any state pushed before the renderer has attached its display-state listener.
 
-#### Scenario: Pushing an image to player
-- **WHEN** main renderer sends a display state with type 'image' and a mediaPath
-- **THEN** the player window SHALL display that image
+The player renderer SHALL signal readiness to the main process after it has loaded and registered its display-state listener. On receiving that readiness signal, the main process SHALL flush the cached display state to the player window. As a fallback, the main process SHALL also flush the cached state when the player window's web contents finish loading.
 
-#### Scenario: Pushing black screen
-- **WHEN** main renderer sends a display state with type 'black'
-- **THEN** the player window SHALL show a solid black screen
+#### Scenario: First push after auto-opening the window
+- **GIVEN** the player window is not open
+- **WHEN** the main renderer pushes a display state (auto-opening the window)
+- **THEN** the state SHALL be cached by the main process
+- **AND** the player window SHALL render that state once its renderer signals readiness
+- **AND** the state SHALL NOT be dropped even if the renderer was not yet loaded when the push occurred
 
-#### Scenario: Pushing a PDF page
-- **WHEN** main renderer sends a display state with type 'pdf', mediaPath, and pdfPage
-- **THEN** the player window SHALL render that specific page of the PDF
+#### Scenario: Push while renderer not yet ready
+- **GIVEN** the player window has been created but its renderer has not yet signalled readiness
+- **WHEN** the main renderer pushes a display state
+- **THEN** the main process SHALL store the state and defer sending
+- **AND** SHALL send it as soon as the renderer signals readiness
+
+#### Scenario: Multiple pushes before ready collapse to latest
+- **GIVEN** the player window is loading
+- **WHEN** several display states are pushed in quick succession before the renderer is ready
+- **THEN** only the most recently pushed state SHALL be rendered when the renderer becomes ready
+
+#### Scenario: Push when renderer already ready
+- **WHEN** the main renderer pushes a display state and the player renderer has already signalled readiness
+- **THEN** the player window SHALL render that state immediately
 
 ### Requirement: Image rendering
-Images SHALL be displayed centered on a black background, scaled to fit within the window without cropping or distortion (object-fit: contain behavior).
+Images SHALL be displayed within their layer's bounding box on the fixed 16:9 content area, scaled to fit without cropping or distortion (object-fit: contain behavior). Because layer boxes are auto-fitted to image aspect ratio against a constant-aspect canvas, a correctly fitted layer SHALL show no black bands inside its box; the contain behavior remains as a safety net for any box whose aspect ratio differs from its image.
 
-#### Scenario: Landscape image in landscape window
-- **WHEN** a landscape image is pushed to a landscape-oriented player window
-- **THEN** the image SHALL fill the width with black bars top/bottom if aspect ratios differ
+#### Scenario: Fitted layer shows no bands
+- **GIVEN** a layer whose box has been auto-fitted to its image's aspect ratio
+- **WHEN** it is rendered in the player content area
+- **THEN** the image SHALL fill its box with no internal black bands
 
-#### Scenario: Portrait image in landscape window
-- **WHEN** a portrait image is pushed to a landscape-oriented player window
-- **THEN** the image SHALL fill the height with black bars on the sides
+#### Scenario: Mismatched box still contains image
+- **GIVEN** a layer whose box aspect ratio differs from its image
+- **WHEN** it is rendered
+- **THEN** the image SHALL be scaled to fit within the box without cropping or distortion (black bands where the box exceeds the image)
 
 ### Requirement: PDF page rendering
 PDFs SHALL be rendered one page at a time using pdf.js. The rendered page SHALL be scaled to fit the window (same contain behavior as images) on a black background.
@@ -55,15 +69,17 @@ PDFs SHALL be rendered one page at a time using pdf.js. The rendered page SHALL 
 - **THEN** the last page of the PDF SHALL be displayed
 
 ### Requirement: Window position memory
-The player window SHALL remember its position and size within the application session. When closed and reopened, it SHALL restore to its last position.
+The player window SHALL remember its position and size within the application session, and SHALL restore the current display state when reopened. When closed and reopened, it SHALL restore to its last position and re-render the last pushed composition rather than showing black.
 
-#### Scenario: Reopen after close
+#### Scenario: Reopen after close restores position and content
+- **GIVEN** the player window was showing a published composition
 - **WHEN** the player window is closed and then reopened in the same app session
 - **THEN** it SHALL appear at the same position and size as when it was closed
+- **AND** it SHALL re-render the last pushed display state once its renderer signals readiness
 
 #### Scenario: First open in session
 - **WHEN** the player window is opened for the first time in a session
-- **THEN** it SHALL open with default size (1920x1080) on the primary display
+- **THEN** it SHALL open with default size on the primary display
 
 ### Requirement: Fullscreen support
 The player window SHALL support toggling fullscreen mode via keyboard shortcut (F11) or programmatic control from the main window.
@@ -105,4 +121,21 @@ The "Open/Close Player Window" menu item (and its `CmdOrCtrl+P` accelerator) SHA
 - **WHEN** the user re-enables `visualDisplayEnabled`
 - **THEN** the "Open/Close Player Window" item SHALL become enabled
 - **AND** `CmdOrCtrl+P` SHALL again open the player window
+
+### Requirement: Fixed 16:9 player content area
+The player window SHALL render layers onto a fixed 16:9 content area centered within the window, with a black letterbox filling any remaining space. Layer `x/y/width/height` percentages SHALL be interpreted relative to this content area, identical to the composition canvas, giving exact position and aspect-ratio parity between the workspace and the player output.
+
+#### Scenario: Layout parity between workspace and player
+- **GIVEN** a published composition laid out in the 16:9 composition canvas
+- **WHEN** it is rendered in the player window
+- **THEN** each layer SHALL appear at the same relative position and size as in the composition canvas
+
+#### Scenario: Non-16:9 player window letterboxes content
+- **GIVEN** the player window is sized or fullscreened to an aspect ratio other than 16:9
+- **THEN** the content area SHALL remain 16:9, centered, with black bars filling the remainder
+- **AND** layer positions SHALL stay consistent with the composition canvas
+
+#### Scenario: 16:9 player window fills exactly
+- **GIVEN** the player window is exactly 16:9
+- **THEN** the content area SHALL fill the window with no visible letterbox bars
 

@@ -145,7 +145,37 @@ export const useVisualDisplay = () => {
   const blackAll = () => {
     // Clear any pending timers — nothing should fire after a black-all.
     for (const id of Array.from(pendingTimers.keys())) cancelPendingTimers(id);
-    layers.value = layers.value.map((l) => ({ ...l, published: false }));
+    // Background layers survive the Black button; everything else goes dark.
+    layers.value = layers.value.map((l) =>
+      l.isBackground ? l : { ...l, published: false }
+    );
+  };
+
+  // Mark a layer as the full-screen background (or clear that role). A background
+  // layer snaps to full-screen, sits behind everything, and stays published on
+  // Black. Only one background may be active — enabling clears any previous one.
+  const setBackground = (id: string, value: boolean) => {
+    if (!value) {
+      updateLayer(id, { isBackground: false });
+      return;
+    }
+    const minZ =
+      layers.value.length === 0 ? 0 : Math.min(...layers.value.map((l) => l.zIndex));
+    layers.value = layers.value.map((l) => {
+      if (l.id === id) {
+        return {
+          ...l,
+          isBackground: true,
+          published: true, // a backdrop is shown immediately and stays on Black
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+          zIndex: minZ - 1,
+        };
+      }
+      return l.isBackground ? { ...l, isBackground: false } : l;
+    });
   };
 
   const bringToFront = (id: string) => updateLayer(id, { zIndex: nextZ() });
@@ -187,6 +217,7 @@ export const useVisualDisplay = () => {
         zIndex: l.zIndex,
         fadeIn: l.mediaItem.fadeIn ?? 0,
         fadeOut: l.mediaItem.fadeOut ?? 0,
+        isBackground: l.isBackground ?? false,
       }));
     return { layers: published };
   };
@@ -298,6 +329,7 @@ export const useVisualDisplay = () => {
     unpublishLayerWithFade,
     publishAll,
     blackAll,
+    setBackground,
     bringToFront,
     sendToBack,
     clearAll,

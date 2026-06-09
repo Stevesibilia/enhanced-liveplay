@@ -41,6 +41,18 @@ export const useVisualMedia = () => {
     saveProject();
   };
 
+  // Move a batch of items into a folder. The '__unfiled__' sentinel clears the
+  // folder (item becomes unfiled). Persists once after all moves.
+  const moveItemsToFolder = (uuids: string[], folder: string | null): void => {
+    if (!currentProject.value) return;
+    const target = folder === '__unfiled__' ? undefined : folder ?? undefined;
+    for (const uuid of uuids) {
+      const item = currentProject.value.visualMedia.find(i => i.uuid === uuid);
+      if (item) item.folder = target;
+    }
+    saveProject();
+  };
+
   // Add a visual folder
   const addVisualFolder = (name: string): void => {
     if (!currentProject.value) return;
@@ -87,6 +99,7 @@ export const useVisualMedia = () => {
     addVisualMedia,
     removeVisualMedia,
     updateVisualMedia,
+    moveItemsToFolder,
     addVisualFolder,
     removeVisualFolder,
     validateVisualMediaLinks,
