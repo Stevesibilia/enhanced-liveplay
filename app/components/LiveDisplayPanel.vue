@@ -60,7 +60,7 @@
           @load="onImageLoad($event, layer)"
         />
 
-        <template v-if="selectedLayerId === layer.id">
+        <template v-if="selectedLayerId === layer.id && !layer.isBackground">
           <div
             v-for="handle in resizeHandles"
             :key="handle"
@@ -69,6 +69,11 @@
             @mousedown.stop="onResizeStart($event, layer, handle)"
           ></div>
         </template>
+
+        <div v-if="layer.isBackground" class="bg-badge">
+          <span class="material-symbols-rounded">wallpaper</span>
+          <span>BG</span>
+        </div>
 
         <div v-if="isLayerPending(layer.id)" class="pending-tag">
           <span class="material-symbols-rounded">schedule</span>
@@ -87,11 +92,27 @@
           </span>
           {{ selectedLayer.published ? 'Unpublish' : 'Publish' }}
         </button>
-        <button class="action-btn" @click="bringToFront(selectedLayer.id)">
+        <button
+          class="action-btn"
+          :class="{ active: selectedLayer.isBackground }"
+          @click="onToggleBackground(selectedLayer)"
+        >
+          <span class="material-symbols-rounded">wallpaper</span>
+          {{ selectedLayer.isBackground ? 'Unset BG' : 'Background' }}
+        </button>
+        <button
+          class="action-btn"
+          :disabled="selectedLayer.isBackground"
+          @click="bringToFront(selectedLayer.id)"
+        >
           <span class="material-symbols-rounded">flip_to_front</span>
           Front
         </button>
-        <button class="action-btn" @click="sendToBack(selectedLayer.id)">
+        <button
+          class="action-btn"
+          :disabled="selectedLayer.isBackground"
+          @click="sendToBack(selectedLayer.id)"
+        >
           <span class="material-symbols-rounded">flip_to_back</span>
           Back
         </button>
@@ -119,6 +140,7 @@ const {
   publishLayerWithLinking,
   unpublishLayerWithFade,
   blackAll,
+  setBackground,
   bringToFront,
   sendToBack,
   getPublishedState,
@@ -254,24 +276,45 @@ const onDragLeave = () => {
 
 const onDrop = (e: DragEvent) => {
   isDragOver.value = false;
-  const uuid = e.dataTransfer?.getData('application/x-visual-media-uuid');
-  if (!uuid || !currentProject.value) return;
-  const item = currentProject.value.visualMedia?.find((m) => m.uuid === uuid);
-  if (!item) return;
+  const project = currentProject.value;
+  if (!project) return;
+
+  // Read the multi-uuid payload; fall back to the legacy single-uuid key.
+  let uuids: string[] = [];
+  const multi = e.dataTransfer?.getData('application/x-visual-media-uuids');
+  if (multi) {
+    try {
+      const arr = JSON.parse(multi);
+      if (Array.isArray(arr)) uuids = arr;
+    } catch { /* fall through */ }
+  }
+  if (!uuids.length) {
+    const single = e.dataTransfer?.getData('application/x-visual-media-uuid');
+    if (single) uuids = [single];
+  }
+  if (!uuids.length) return;
 
   const rect = canvasRef.value?.getBoundingClientRect();
-  let x: number | undefined;
-  let y: number | undefined;
-  if (rect) {
-    const width = 50;
-    const height = 50;
-    const cx = ((e.clientX - rect.left) / rect.width) * 100 - width / 2;
-    const cy = ((e.clientY - rect.top) / rect.height) * 100 - height / 2;
-    x = Math.max(0, Math.min(100 - width, cx));
-    y = Math.max(0, Math.min(100 - height, cy));
-  }
-  const layer = addLayer(item, { x, y });
-  if (layer) selectLayer(layer.id);
+  const width = 50;
+  const height = 50;
+  const baseX = rect ? ((e.clientX - rect.left) / rect.width) * 100 - width / 2 : 0;
+  const baseY = rect ? ((e.clientY - rect.top) / rect.height) * 100 - height / 2 : 0;
+
+  let lastLayer: DisplayLayer | null = null;
+  uuids.forEach((uuid, i) => {
+    const item = project.visualMedia?.find((m) => m.uuid === uuid);
+    if (!item) return;
+    let x: number | undefined;
+    let y: number | undefined;
+    if (rect) {
+      const off = i * 3; // cascade so stacked drops don't perfectly overlap
+      x = Math.max(0, Math.min(100 - width, baseX + off));
+      y = Math.max(0, Math.min(100 - height, baseY + off));
+    }
+    const layer = addLayer(item, { x, y }); // returns null for non-image
+    if (layer) lastLayer = layer;
+  });
+  if (lastLayer) selectLayer((lastLayer as DisplayLayer).id);
 };
 
 // --- Move + Resize ---
@@ -294,6 +337,8 @@ let dragSession: DragSession | null = null;
 
 const onLayerMouseDown = (e: MouseEvent, layer: DisplayLayer) => {
   selectLayer(layer.id);
+  // Background layers are locked full-screen — selectable but not movable.
+  if (layer.isBackground) return;
   beginDrag(e, layer, 'move');
 };
 
@@ -408,6 +453,12 @@ const togglePublish = (layer: DisplayLayer) => {
       findItemByUuid,
     });
   }
+};
+
+const onToggleBackground = (layer: DisplayLayer) => {
+  // Enabling publishes the backdrop; disabling may change what's shown — always sync.
+  setBackground(layer.id, !layer.isBackground);
+  void syncIfReady();
 };
 
 const onRemove = (id: string) => {
@@ -644,6 +695,28 @@ onUnmounted(() => {
   }
 }
 
+.bg-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+
+  .material-symbols-rounded {
+    font-size: 12px;
+  }
+}
+
 .resize-handle {
   position: absolute;
   width: 10px;
@@ -704,8 +777,10 @@ onUnmounted(() => {
 
   .material-symbols-rounded { font-size: 14px; }
 
-  &:hover { background-color: var(--color-surface-hover); }
+  &:hover:not(:disabled) { background-color: var(--color-surface-hover); }
   &.danger { color: var(--color-danger, #e57373); }
+  &.active { color: var(--color-accent); background-color: rgba(218, 30, 40, 0.12); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 .action-bar-enter-active,

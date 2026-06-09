@@ -65,6 +65,7 @@ export interface DisplayLayer {
   height: number;          // 0-100, % of the 16:9 canvas height
   zIndex: number;
   published: boolean;
+  isBackground?: boolean;  // full-screen, always behind, survives the Black button
 }
 
 // A layer in the player-bound payload (only published ones, absolute paths).
@@ -80,6 +81,7 @@ export interface PublishedLayer {
   zIndex: number;
   fadeIn?: number;   // seconds; applied when this layer is newly added
   fadeOut?: number;  // seconds; applied when this layer is removed
+  isBackground?: boolean; // full-screen backdrop; stays put on Black
 }
 
 // Full state pushed to the player window on every change

@@ -3,7 +3,7 @@
     class="media-library-item"
     :class="{ selected }"
     draggable="true"
-    @click="$emit('select')"
+    @click="$emit('select', $event)"
     @dragstart="onDragStart"
   >
     <div class="thumbnail">
@@ -38,10 +38,13 @@ import type { VisualMediaItem } from '~/types/project';
 const props = defineProps<{
   item: VisualMediaItem;
   selected?: boolean;
+  // The full current selection (uuids). When this item is selected, dragging
+  // it drags the whole selection.
+  selection?: string[];
 }>();
 
-defineEmits<{
-  select: [];
+const emit = defineEmits<{
+  select: [event?: MouseEvent];
   push: [];
   properties: [];
   delete: [];
@@ -50,6 +53,15 @@ defineEmits<{
 const onDragStart = (e: DragEvent) => {
   if (!e.dataTransfer) return;
   e.dataTransfer.effectAllowed = 'copy';
+
+  // Dragging a selected item drags the whole selection; dragging an unselected
+  // item drags just it (and makes it the selection).
+  const uuids =
+    props.selected && props.selection?.length ? props.selection : [props.item.uuid];
+  if (!props.selected) emit('select');
+
+  e.dataTransfer.setData('application/x-visual-media-uuids', JSON.stringify(uuids));
+  // Legacy single-uuid key kept for back-compat with older drop handlers.
   e.dataTransfer.setData('application/x-visual-media-uuid', props.item.uuid);
 };
 

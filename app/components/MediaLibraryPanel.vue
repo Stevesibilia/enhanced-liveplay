@@ -28,8 +28,11 @@
         </li>
         <li
           class="folder-item"
-          :class="{ active: selectedFolder === '__unfiled__' }"
+          :class="{ active: selectedFolder === '__unfiled__', 'drop-target': dragOverFolder === '__unfiled__' }"
           @click="selectedFolder = '__unfiled__'"
+          @dragover.prevent="onFolderDragOver('__unfiled__')"
+          @dragleave="onFolderDragLeave"
+          @drop.prevent.stop="onFolderDrop($event, '__unfiled__')"
         >
           <span class="material-symbols-rounded">folder_off</span>
           <span>Unfiled</span>
@@ -38,9 +41,12 @@
           v-for="folder in folders"
           :key="folder"
           class="folder-item"
-          :class="{ active: selectedFolder === folder }"
+          :class="{ active: selectedFolder === folder, 'drop-target': dragOverFolder === folder }"
           @click="selectedFolder = folder"
           @dblclick="startRenameFolder(folder)"
+          @dragover.prevent="onFolderDragOver(folder)"
+          @dragleave="onFolderDragLeave"
+          @drop.prevent.stop="onFolderDrop($event, folder)"
         >
           <span class="material-symbols-rounded">folder</span>
           <span v-if="renamingFolder !== folder" class="folder-name">{{ folder }}</span>
@@ -86,8 +92,9 @@
           v-for="item in filteredItems"
           :key="item.uuid"
           :item="item"
-          :selected="selectedItemId === item.uuid"
-          @select="selectItem(item)"
+          :selected="selectedUuids.has(item.uuid)"
+          :selection="selectionArray"
+          @select="selectItem(item, $event)"
           @push="pushItem(item)"
           @properties="openItemProperties(item)"
           @delete="confirmDeleteItemFromButton(item)"
@@ -147,12 +154,19 @@ import type { VisualMediaItem } from '~/types/project';
 import { getVisualMediaType } from '~/types/project';
 
 const { currentProject } = useProject();
-const { addVisualMedia, removeVisualMedia, updateVisualMedia, addVisualFolder, removeVisualFolder } = useVisualMedia();
+const { addVisualMedia, removeVisualMedia, updateVisualMedia, moveItemsToFolder, addVisualFolder, removeVisualFolder } = useVisualMedia();
 const { selectItem: visualDisplaySelect, addLayer, selectLayer, openProperties } = useVisualDisplay();
 
 // --- State ---
 const selectedFolder = ref<string | null>(null);
+// Active single item (drives the properties pane / emit) = the last item clicked.
 const selectedItemId = ref<string | null>(null);
+// Multi-selection set (drives the visual selection + group drag).
+const selectedUuids = ref<Set<string>>(new Set());
+const anchorUuid = ref<string | null>(null);
+const selectionArray = computed(() => [...selectedUuids.value]);
+// Folder currently hovered during a drag (for drop highlight); '' = none.
+const dragOverFolder = ref<string | null | ''>('');
 const isDragging = ref(false);
 const renamingFolder = ref<string | null>(null);
 const folderSidebarCollapsed = ref(false);
@@ -184,10 +198,70 @@ const emit = defineEmits<{
   'item-selected': [item: VisualMediaItem];
 }>();
 
-const selectItem = (item: VisualMediaItem) => {
-  selectedItemId.value = item.uuid;
+const selectItem = (item: VisualMediaItem, event?: MouseEvent) => {
+  const uuid = item.uuid;
+  const isCtrl = !!event && (event.metaKey || event.ctrlKey);
+  const isShift = !!event && event.shiftKey;
+
+  if (isShift && anchorUuid.value) {
+    // Range select over the current filtered order, from anchor to clicked.
+    const ids = filteredItems.value.map((i) => i.uuid);
+    const a = ids.indexOf(anchorUuid.value);
+    const b = ids.indexOf(uuid);
+    if (a !== -1 && b !== -1) {
+      const [lo, hi] = a < b ? [a, b] : [b, a];
+      selectedUuids.value = new Set(ids.slice(lo, hi + 1));
+    }
+  } else if (isCtrl) {
+    // Toggle membership; clicked item becomes the new anchor.
+    const next = new Set(selectedUuids.value);
+    next.has(uuid) ? next.delete(uuid) : next.add(uuid);
+    selectedUuids.value = next;
+    anchorUuid.value = uuid;
+  } else {
+    // Plain click → single selection (unchanged behavior for downstream panels).
+    selectedUuids.value = new Set([uuid]);
+    anchorUuid.value = uuid;
+  }
+
+  // Active item (properties pane / emit) is always the most recently clicked.
+  selectedItemId.value = uuid;
   visualDisplaySelect(item);
   emit('item-selected', item);
+};
+
+// Clear the multi-selection when switching folders.
+watch(selectedFolder, () => {
+  selectedUuids.value = new Set();
+  anchorUuid.value = null;
+});
+
+// --- Folder drop targets (move dragged items into a folder) ---
+const parseDraggedUuids = (e: DragEvent): string[] => {
+  const multi = e.dataTransfer?.getData('application/x-visual-media-uuids');
+  if (multi) {
+    try {
+      const arr = JSON.parse(multi);
+      if (Array.isArray(arr)) return arr;
+    } catch { /* fall through */ }
+  }
+  const single = e.dataTransfer?.getData('application/x-visual-media-uuid');
+  return single ? [single] : [];
+};
+
+const onFolderDragOver = (folder: string | null) => {
+  dragOverFolder.value = folder;
+};
+const onFolderDragLeave = () => {
+  dragOverFolder.value = '';
+};
+const onFolderDrop = (e: DragEvent, folder: string | null) => {
+  dragOverFolder.value = '';
+  isDragging.value = false;
+  // "All" (null) is not a real folder — nothing to assign there.
+  if (folder === null) return;
+  const uuids = parseDraggedUuids(e);
+  if (uuids.length) moveItemsToFolder(uuids, folder);
 };
 
 // Push from the media library = add as a new draft layer in the composition.
@@ -199,7 +273,11 @@ const pushItem = (item: VisualMediaItem) => {
 };
 
 // --- Drag and Drop ---
-const onDragOver = () => { isDragging.value = true; };
+// Only arm the import outline for external file drags, not internal item drags
+// (otherwise dragging items to a folder leaves the panel outline stuck).
+const onDragOver = (e: DragEvent) => {
+  if (e.dataTransfer?.types.includes('Files')) isDragging.value = true;
+};
 const onDragLeave = () => { isDragging.value = false; };
 
 const onDrop = async (e: DragEvent) => {
@@ -457,6 +535,12 @@ const executeDelete = async () => {
     background-color: rgba(218, 30, 40, 0.15);
     color: var(--color-accent);
     .material-symbols-rounded { color: var(--color-accent); }
+  }
+
+  &.drop-target {
+    outline: 2px dashed var(--color-accent);
+    outline-offset: -2px;
+    background-color: rgba(218, 30, 40, 0.1);
   }
 }
 
