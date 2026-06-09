@@ -53,26 +53,30 @@ export interface DisplayState {
 
 // A layer in the GM composition workspace (includes drafts).
 // PDF support is deferred — layers are images only for now.
+// Coordinates are percentages relative to the fixed 16:9 composition canvas
+// (not the variable-aspect panel), so they map to the same relative rectangle
+// in the player window's 16:9 content area.
 export interface DisplayLayer {
   id: string;              // unique layer id (uuid)
   mediaItem: VisualMediaItem;
-  x: number;               // 0-100, percentage of container width (top-left)
-  y: number;               // 0-100, percentage of container height (top-left)
-  width: number;           // 0-100, percentage of container width
-  height: number;          // 0-100, percentage of container height
+  x: number;               // 0-100, % of the 16:9 canvas width (top-left)
+  y: number;               // 0-100, % of the 16:9 canvas height (top-left)
+  width: number;           // 0-100, % of the 16:9 canvas width
+  height: number;          // 0-100, % of the 16:9 canvas height
   zIndex: number;
   published: boolean;
 }
 
-// A layer in the player-bound payload (only published ones, absolute paths)
+// A layer in the player-bound payload (only published ones, absolute paths).
+// x/y/width/height are percentages relative to the fixed 16:9 canvas.
 export interface PublishedLayer {
   id: string;
   type: 'image';
   mediaPath: string;       // absolute filesystem path
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x: number;               // 0-100, % of the 16:9 canvas
+  y: number;               // 0-100, % of the 16:9 canvas
+  width: number;           // 0-100, % of the 16:9 canvas
+  height: number;          // 0-100, % of the 16:9 canvas
   zIndex: number;
   fadeIn?: number;   // seconds; applied when this layer is newly added
   fadeOut?: number;  // seconds; applied when this layer is removed

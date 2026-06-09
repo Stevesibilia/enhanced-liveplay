@@ -23,15 +23,19 @@
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
     >
-      <div v-if="layers.length === 0" class="empty-placeholder">
-        <span class="material-symbols-rounded">layers</span>
-        <p>Drag or push items here</p>
-      </div>
+      <!-- Fixed 16:9 canvas: the coordinate origin for all layers. Letterboxed
+           (centered with black bars) inside the panel so a layer's x/y/width/height
+           percentages map to the same relative rectangle here and in the player. -->
+      <div ref="canvasRef" class="canvas">
+        <div v-if="layers.length === 0" class="empty-placeholder">
+          <span class="material-symbols-rounded">layers</span>
+          <p>Drag or push items here</p>
+        </div>
 
-      <div
-        v-for="layer in sortedLayers"
-        :key="layer.id"
-        class="layer"
+        <div
+          v-for="layer in sortedLayers"
+          :key="layer.id"
+          class="layer"
         :class="{
           published: layer.published,
           draft: !layer.published,
@@ -69,6 +73,7 @@
         <div v-if="isLayerPending(layer.id)" class="pending-tag">
           <span class="material-symbols-rounded">schedule</span>
           <span>queued</span>
+        </div>
         </div>
       </div>
     </div>
@@ -123,7 +128,14 @@ const { syncToPlayer } = usePlayerSync();
 const { playCue } = useAudioEngine();
 
 const workspaceRef = ref<HTMLElement | null>(null);
+// The fixed 16:9 canvas. All layer coordinate math (drop, drag, resize, fit)
+// is measured against this element, not the variable-aspect workspace.
+const canvasRef = ref<HTMLElement | null>(null);
 const isDragOver = ref(false);
+
+// Output aspect ratio. The canvas and the player both render at 16:9, so layer
+// percentages map identically between them and stay valid across any resize.
+const CANVAS_AR = 16 / 9;
 
 const imageSrcMap = ref<Record<string, string>>({});
 
@@ -192,18 +204,18 @@ watch(
 const onImageLoad = (e: Event, layer: DisplayLayer) => {
   if (autoFitted.has(layer.id)) return;
   const img = e.target as HTMLImageElement;
-  const rect = workspaceRef.value?.getBoundingClientRect();
-  if (!rect || !img.naturalWidth || !img.naturalHeight) return;
+  if (!img.naturalWidth || !img.naturalHeight) return;
 
   const imageAspect = img.naturalWidth / img.naturalHeight;
-  const workspaceAspect = rect.width / rect.height;
 
-  // Preserve the current width % unless the resulting height would overflow.
+  // Fit against the FIXED canvas aspect ratio, not the live panel size. Because
+  // the canvas is always 16:9, this fit is resolution-independent and stays
+  // correct across window/panel resizes — no re-fit needed.
   let widthPct = layer.width;
-  let heightPct = widthPct * (workspaceAspect / imageAspect);
+  let heightPct = widthPct * (CANVAS_AR / imageAspect);
   if (heightPct > 100) {
     heightPct = 100;
-    widthPct = heightPct * (imageAspect / workspaceAspect);
+    widthPct = heightPct * (imageAspect / CANVAS_AR);
   }
 
   // Keep the layer centered on its current center.
@@ -247,7 +259,7 @@ const onDrop = (e: DragEvent) => {
   const item = currentProject.value.visualMedia?.find((m) => m.uuid === uuid);
   if (!item) return;
 
-  const rect = workspaceRef.value?.getBoundingClientRect();
+  const rect = canvasRef.value?.getBoundingClientRect();
   let x: number | undefined;
   let y: number | undefined;
   if (rect) {
@@ -295,7 +307,7 @@ const beginDrag = (
   mode: 'move' | 'resize',
   handle?: ResizeHandle
 ) => {
-  const rect = workspaceRef.value?.getBoundingClientRect();
+  const rect = canvasRef.value?.getBoundingClientRect();
   if (!rect) return;
   dragSession = {
     layerId: layer.id,
@@ -522,11 +534,35 @@ onUnmounted(() => {
   background-color: #000;
   overflow: hidden;
   border: 1px solid var(--color-border);
+  // Center the fixed-AR canvas; the surrounding space shows as black letterbox.
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // Query container so the canvas can size itself to fit at exactly 16:9.
+  container-type: size;
 
   &.drag-over {
     outline: 2px dashed var(--color-accent);
     outline-offset: -4px;
   }
+}
+
+// Fixed 16:9 canvas. Layers are positioned relative to this, so their
+// percentages mean the same pixels here and in the player window.
+.canvas {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  // Largest 16:9 box that fits the panel in EITHER orientation: take the
+  // smaller of full width or the width a full-height 16:9 box would need.
+  // Height follows from aspect-ratio, so the box is always exactly 16:9.
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  height: auto;
+  margin: auto;
+  background-color: #000;
+  overflow: hidden;
+  // Make the 16:9 output frame visible against the black letterbox so the GM
+  // sees exactly what the player window will show (WYSIWYG).
+  outline: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .empty-placeholder {
