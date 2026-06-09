@@ -187,6 +187,10 @@
 
     // Start in black state
     clearDisplay();
+
+    // Tell the main process we're loaded and listening, so it can flush the
+    // last display state (fixes the first-publish-black race).
+    window.playerAPI.signalReady();
   </script>
 </body>
 </html>
