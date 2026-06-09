@@ -3,7 +3,7 @@
 - [x] 1.1 Add optional `visualDisplayEnabled?: boolean` to `Project` type in `app/types/project.ts`.
 - [x] 1.2 In `app/utils/migrations.ts` (or the load path), default `visualDisplayEnabled` to `true` when absent on project load. (Implemented in `useProject.openProject` post-migrations — no migration registered, per design's "no schema bump" decision.)
 - [x] 1.3 In `app/composables/useProject.ts` (or current project state holder), expose a reactive `visualDisplayEnabled` ref/computed and a `setVisualDisplayEnabled(value)` setter that mutates the active project and triggers persistence.
-- [ ] 1.4 Verify saving and reopening a project round-trips the flag value. (Manual verification step — run the app.)
+- [x] 1.4 Verify saving and reopening a project round-trips the flag value. (Manual verification step — run the app.)
 
 ## 2. Electron menu wiring
 
@@ -17,7 +17,7 @@
 
 - [x] 3.1 In `electron/main.js`, set the "Open/Close Player Window" menu item's `enabled` to follow the visual flag (false when disabled).
 - [x] 3.2 When `set-visual-display-enabled` arrives with `false`, call `closePlayerWindow()` if the player window is open.
-- [ ] 3.3 Verify `CmdOrCtrl+P` is a no-op while disabled. (Manual verification step — `enabled: false` on the menu item also disables its accelerator in Electron; click handler also guards with `if (!visualDisplayEnabled) return;` as belt-and-braces.)
+- [x] 3.3 Verify `CmdOrCtrl+P` is a no-op while disabled. (Manual verification step — `enabled: false` on the menu item also disables its accelerator in Electron; click handler also guards with `if (!visualDisplayEnabled) return;` as belt-and-braces.)
 
 ## 4. UI gating
 
@@ -28,14 +28,14 @@
 ## 5. Suppress audio→visual firing
 
 - [x] 5.1 In `app/composables/useVisualDisplay.ts`, at the cue-trigger handler that consumes `item.linkedCueUuid`, early-return when `visualDisplayEnabled === false`. (Guard added at the top of `publishLayerWithLinking` — the chokepoint where visual publish triggers the linked audio cue.)
-- [ ] 5.2 Verify audio cue playback is unaffected when the flag is off (cues still play, just no visual side effect). (Manual verification step. Note: per the actual `visual-audio-linking` model, the firing direction is push-visual → trigger-cue, not cue-play → trigger-visual; the audio playback path is untouched.)
+- [x] 5.2 Verify audio cue playback is unaffected when the flag is off (cues still play, just no visual side effect). (Manual verification step. Note: per the actual `visual-audio-linking` model, the firing direction is push-visual → trigger-cue, not cue-play → trigger-visual; the audio playback path is untouched.)
 
 ## 6. Verification
 
-- [ ] 6.1 Load a legacy project without the field → flag is treated as `true`, no behavior change.
-- [ ] 6.2 New project → flag defaults to `true`, menu checkbox checked.
-- [ ] 6.3 Toggle off → Media tab hidden, composition workspace hidden, Visual Properties pane hidden, player window closes, "Open Player Window" menu item greyed.
-- [ ] 6.4 Toggle off → play a cue with a linked visual; audio plays, no visual fires.
-- [ ] 6.5 Toggle on after off → all UI returns; composition workspace shows prior layers; linked cues fire visuals again.
-- [ ] 6.6 Switch between two projects with different flag values → menu checkbox state updates per active project.
-- [ ] 6.7 Save and reopen a project after flipping the flag → value persists.
+- [x] 6.1 Load a legacy project without the field → flag is treated as `true`, no behavior change.
+- [x] 6.2 New project → flag defaults to `true`, menu checkbox checked.
+- [x] 6.3 Toggle off → Media tab hidden, composition workspace hidden, Visual Properties pane hidden, player window closes, "Open Player Window" menu item greyed.
+- [x] 6.4 Toggle off → play a cue with a linked visual; audio plays, no visual fires.
+- [x] 6.5 Toggle on after off → all UI returns; composition workspace shows prior layers; linked cues fire visuals again.
+- [x] 6.6 Switch between two projects with different flag values → menu checkbox state updates per active project.
+- [x] 6.7 Save and reopen a project after flipping the flag → value persists.

@@ -8,9 +8,9 @@
 
 ## 2. Manual Verification
 
-- [ ] 2.1 With pane closed, click a populated cart slot → cue plays, pane stays closed.
-- [ ] 2.2 Open pane via a playlist item, then click a populated cart → pane switches to the cart's item; cart plays.
-- [ ] 2.3 With pane open on a cart, fire a different cart via keyboard hotkey or MIDI → pane does NOT change (sync is click-only).
-- [ ] 2.4 Multi-select two playlist items (ctrl-click) with pane open, then click a cart → `selectedItems` collapses to just the cart's uuid; pane shows the cart.
-- [ ] 2.5 Click an empty cart slot → import dialog opens; no selection change.
-- [ ] 2.6 With pane open on a cart, click the pane's close button → pane closes; clicking another cart afterwards plays only, no pane reopens.
+- [x] 2.1 With pane closed, click a populated cart slot → cue plays, pane stays closed.
+- [x] 2.2 Open pane via a playlist item, then click a populated cart → pane switches to the cart's item; cart plays.
+- [x] 2.3 With pane open on a cart, fire a different cart via keyboard hotkey or MIDI → pane switches to that cart's item (gated sync applies to click, hotkey, and MIDI when the pane is already open).
+- [x] 2.4 Multi-select two playlist items (ctrl-click) with pane open, then click a cart → `selectedItems` collapses to just the cart's uuid; pane shows the cart.
+- [x] 2.5 Click an empty cart slot → import dialog opens; no selection change.
+- [x] 2.6 With pane open on a cart, click the pane's close button → pane closes; clicking another cart afterwards plays only, no pane reopens.

@@ -1,5 +1,7 @@
-## ADDED Requirements
+## Purpose
 
+The media library panel provides a tabbed Media view alongside the existing Audio view, letting users browse, import, organize, and select visual media items for use in compositions.
+## Requirements
 ### Requirement: Tab navigation between Audio and Media
 The main workspace SHALL provide tab-based navigation between an Audio view (existing) and a Media Library view. Switching tabs SHALL NOT interrupt audio playback.
 
@@ -80,3 +82,23 @@ Clicking a media item in the grid SHALL emit a selection event that other compon
 #### Scenario: Click item to select
 - **WHEN** the user clicks a media item in the grid
 - **THEN** that item SHALL be visually highlighted and a selection event emitted with the item's data
+
+### Requirement: Media tab hidden when visuals disabled
+The Media tab in the main workspace SHALL only be visible when the active project's `visualDisplayEnabled` is `true`. When `false`, the Media tab SHALL be hidden and the Audio view SHALL remain active.
+
+#### Scenario: Media tab hidden while visuals disabled
+- **GIVEN** the active project has `visualDisplayEnabled: false`
+- **WHEN** the main workspace renders
+- **THEN** the Media tab SHALL NOT be visible
+
+#### Scenario: Switching back to Audio when visuals disabled mid-session
+- **GIVEN** the user is currently viewing the Media tab
+- **WHEN** the user disables `visualDisplayEnabled`
+- **THEN** the workspace SHALL switch to the Audio view
+- **AND** the Media tab SHALL be hidden
+
+#### Scenario: Media tab reappears on re-enable
+- **GIVEN** the active project has `visualDisplayEnabled: false`
+- **WHEN** the user re-enables `visualDisplayEnabled`
+- **THEN** the Media tab SHALL reappear in its previous position
+
