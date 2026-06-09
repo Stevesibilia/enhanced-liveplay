@@ -201,6 +201,8 @@ let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
 let playerWindow = null; // Player display window (second monitor)
 let playerWindowBounds = null; // Session-only bounds persistence
+let lastDisplayState = null; // Newest display state; buffered for flush + reopen
+let playerReady = false; // True once the player renderer has signalled it is listening
 let visualDisplayEnabled = true; // Per-project flag mirrored from renderer; gates player window menu item
 
 // Guard: resolve a path and verify it lives inside the active project folder.
@@ -806,12 +808,23 @@ function createPlayerWindow() {
 
   playerWindow = new BrowserWindow(windowOptions);
 
+  // Renderer is not listening until it signals 'player-ready'.
+  playerReady = false;
+
   // Load the player HTML
   const playerHtmlPath = path.join(__dirname, 'player.html');
   playerWindow.loadFile(playerHtmlPath);
 
   playerWindow.once('ready-to-show', () => {
     playerWindow.show();
+  });
+
+  // Fallback flush in case the 'player-ready' handshake is ever missed:
+  // re-send the last state once the contents finish loading.
+  playerWindow.webContents.on('did-finish-load', () => {
+    if (lastDisplayState && playerWindow && !playerWindow.isDestroyed()) {
+      playerWindow.webContents.send('display-state', lastDisplayState);
+    }
   });
 
   // Handle F11 for fullscreen toggle in player window
@@ -825,6 +838,8 @@ function createPlayerWindow() {
 
   playerWindow.on('closed', () => {
     playerWindow = null;
+    // Keep lastDisplayState so a reopen restores content; just mark not-ready.
+    playerReady = false;
   });
 
   // Notify main renderer that player window opened
@@ -1426,11 +1441,24 @@ ipcMain.handle('get-player-window-status', () => {
 // (Legacy single-item payloads are no longer emitted by the renderer; the
 // player.html handler keeps a compatibility branch for safety.)
 ipcMain.handle('push-to-player', (event, displayState) => {
-  if (playerWindow && !playerWindow.isDestroyed()) {
+  // Cache the newest state first so it survives a not-yet-ready renderer and
+  // a window reopen. Only send now if the renderer has signalled readiness;
+  // otherwise 'player-ready' (or did-finish-load) will flush it.
+  lastDisplayState = displayState;
+  if (playerWindow && !playerWindow.isDestroyed() && playerReady) {
     playerWindow.webContents.send('display-state', displayState);
     return { success: true };
   }
-  return { success: false, error: 'Player window not open' };
+  return { success: false, queued: true };
+});
+
+// The player renderer signals readiness after attaching its display-state
+// listener. Flush the buffered state so the first publish never gets dropped.
+ipcMain.on('player-ready', () => {
+  playerReady = true;
+  if (lastDisplayState && playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.webContents.send('display-state', lastDisplayState);
+  }
 });
 
 ipcMain.handle('toggle-player-fullscreen', () => {
