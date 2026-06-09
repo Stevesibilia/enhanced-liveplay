@@ -1,0 +1,200 @@
+{
+  "_metadata": {
+    "code": "de",
+    "name": "German",
+    "nativeName": "Deutsch",
+    "direction": "ltr"
+  },
+  "app": {
+    "name": "E-LivePlay"
+  },
+  "menu": {
+    "file": "Datei",
+    "newProject": "Neues Projekt",
+    "openProject": "Projekt Öffnen",
+    "saveProject": "Projekt Speichern",
+    "exportProject": "Projekt Exportieren",
+    "importProject": "Projekt Importieren",
+    "closeProject": "Projekt Schließen",
+    "openProjectFolder": "Projektordner Öffnen",
+    "exit": "Beenden",
+    "view": "Ansicht",
+    "toggleDarkMode": "Dunkelmodus umschalten",
+    "changeAccentColor": "Akzentfarbe ändern",
+    "fullscreen": "Vollbild",
+    "language": "Sprache",
+    "help": "Hilfe",
+    "about": "Über LivePlay"
+  },
+  "welcome": {
+    "title": "E-LivePlay",
+    "subtitle": "Audiowiedergabe für Live-Veranstaltungen",
+    "newProject": "Neues Projekt",
+    "openProject": "Projekt öffnen"
+  },
+  "project": {
+    "enterName": "Projektnamen eingeben",
+    "placeholder": "Mein Projekt",
+    "cancel": "Abbrechen",
+    "ok": "OK",
+    "importAudio": "Audio importieren",
+    "noProject": "Kein Projekt",
+    "silenceWarning": "WARNUNG: STILLE IN",
+    "seconds": "SEKUNDEN"
+  },
+  "playlist": {
+    "title": "Wiedergabeliste",
+    "import": "Audio importieren",
+    "addGroup": "Gruppe hinzufügen",
+    "noItems": "Keine Elemente in der Wiedergabeliste",
+    "importAudio": "Audio importieren",
+    "importHint": "Verwenden Sie die Importschaltflächen oder ziehen Sie Dateien hierher"
+  },
+  "cart": {
+    "title": "Kartenspieler",
+    "emptySlot": "Klicken Sie zum Importieren oder ziehen Sie ein Element hierher",
+    "clickToImport": "Klicken Sie zum Importieren oder ziehen Sie ein Element hierher"
+  },
+  "properties": {
+    "title": "Eigenschaften",
+    "noSelection": "Wählen Sie ein Element aus, um die Eigenschaften anzuzeigen",
+    "displayName": "Anzeigename",
+    "color": "Farbe",
+    "inPoint": "Einstiegspunkt",
+    "outPoint": "Ausstiegspunkt",
+    "volume": "Lautstärke",
+    "endBehavior": "Endverhalten",
+    "startBehavior": "Startverhalten",
+    "duckingBehavior": "Dämpfungsverhalten",
+    "fadeOutDuration": "Ausblenden-Dauer",
+    "duckFadeIn": "Dämpfung Einblenden",
+    "duckFadeOut": "Dämpfung Ausblenden",
+    "children": "Kinder",
+    "seconds": "Sekunden",
+    "uuid": "UUID",
+    "index": "Index",
+    "apiTriggerUrl": "API-Trigger-URL",
+    "file": "Datei",
+    "duration": "Dauer",
+    "mode": "Modus",
+    "action": "Aktion",
+    "playbackSection": "Wiedergabebereich",
+    "media": "Medien",
+    "replace": "Datei ersetzen",
+    "basicInfo": "Grundlegende Informationen",
+    "loadingAudioData": "Audiodaten werden geladen...",
+    "playback": "Wiedergabe",
+    "ducking": "Dämpfung",
+    "duckLevel": "Dämpfungsstufe",
+    "trimSilence": "Stille trimmen",
+    "normalize": "Lautstärke automatisch anpassen",
+    "targetUuid": "Ziel-UUID",
+    "targetIndex": "Zielindex",
+    "playFade": "Einblendung beim Abspielen",
+    "stopFade": "Ausblendung beim Stoppen",
+    "pauseFade": "Pause/Fortsetzen Überblendung",
+    "crossFade": "Überblendung zum Nächsten",
+    "fadeSettings": "Überblendungseinstellungen"
+  },
+  "playback": {
+    "panic": "Alle Signale stoppen",
+    "noActiveCues": "Keine aktiven Signale",
+    "play": "Abspielen",
+    "stop": "Stoppen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten"
+  },
+  "endBehavior": {
+    "nothing": "Nichts",
+    "next": "Nächstes abspielen",
+    "gotoItem": "Zu Element gehen",
+    "gotoIndex": "Zu Index gehen",
+    "loop": "Wiederholen"
+  },
+  "startBehavior": {
+    "nothing": "Nichts",
+    "playNext": "Nächstes abspielen",
+    "playItem": "Element abspielen",
+    "playIndex": "Index abspielen",
+    "playFirst": "Erstes abspielen",
+    "playAll": "Alle abspielen"
+  },
+  "duckingBehavior": {
+    "stopAll": "Alle anderen Signale stoppen",
+    "noDucking": "Keine Dämpfung",
+    "duckOthers": "Andere dämpfen",
+    "duckLevel": "Dämpfungsstufe"
+  },
+  "actions": {
+    "delete": "Löschen",
+    "confirm": "Sind Sie sicher?",
+    "close": "Schließen",
+    "play": "Abspielen",
+    "stop": "Stoppen",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "edit": "Bearbeiten",
+    "remove": "Entfernen"
+  },
+  "about": {
+    "developedBy": "Entwickelt von",
+    "githubRepo": "GitHub-Repository",
+    "developerName": "Thomas Doukinitsas"
+  },
+  "colors": {
+    "chooseAccent": "Akzentfarbe wählen"
+  },
+  "youtube": {
+    "importFromYouTube": "Von YouTube importieren",
+    "searchPlaceholder": "Musik oder Audio suchen...",
+    "searching": "Suche läuft...",
+    "noResults": "Keine Ergebnisse gefunden",
+    "searchError": "Suche fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "preview": "Auf YouTube ansehen",
+    "download": "Herunterladen",
+    "downloading": "Wird heruntergeladen...",
+    "previewHint": "Klicken Sie auf die Vorschau-Schaltfläche, um das Video vor dem Herunterladen anzusehen",
+    "downloadQueue": "Download-Warteschlange",
+    "statusDownloading": "Wird heruntergeladen...",
+    "statusConverting": "Konvertierung zu MP3...",
+    "statusCompleted": "Abgeschlossen",
+    "statusError": "Fehler",
+    "downloadError": "Download fehlgeschlagen. Bitte versuchen Sie es erneut."
+  },
+  "update": {
+    "updateAvailable": "Update verfügbar",
+    "currentVersion": "Aktuelle Version",
+    "newVersion": "Neue Version",
+    "whatsNew": "Was ist neu",
+    "updatePrompt": "Eine neue Version von LivePlay ist verfügbar. Möchten Sie sie jetzt herunterladen und installieren?",
+    "manualUpdatePrompt": "Eine neue Version von LivePlay ist verfügbar. Klicken Sie unten, um die Download-Seite zu besuchen.",
+    "downloading": "Update wird heruntergeladen",
+    "downloadComplete": "Download abgeschlossen",
+    "installInfo": "Das Update ist zur Installation bereit. Sie können es jetzt installieren oder es wird beim Schließen der App installiert.",
+    "later": "Später",
+    "downloadAndInstall": "Herunterladen und installieren",
+    "goToDownloadPage": "Go to Download Page",
+    "installNow": "Jetzt installieren",
+    "installOnExit": "Beim Beenden installieren",
+    "downloadFailed": "Update-Download fehlgeschlagen"
+  },
+  "translationContributor": {
+    "title": "Übersetzungsmitwirkende",
+    "name": "AI Translated with Claude Sonnet 4.5",
+    "contributeLink": "https://www.anthropic.com/claude/sonnet"
+  },
+  "exportProgress": {
+    "title": "Projekt wird exportiert",
+    "message": "Komprimieren"
+  },
+  "importProgress": {
+    "title": "Projekt wird importiert",
+    "message": "Extrahieren"
+  },
+  "selectProject": {
+    "title": "Projekt auswählen",
+    "message": "Mehrere Projekte im Archiv gefunden. Bitte wählen Sie aus, welches geöffnet werden soll:",
+    "cancel": "Abbrechen",
+    "open": "Öffnen"
+  }
+}

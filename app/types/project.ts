@@ -1,0 +1,286 @@
+// Visual media supported extensions and types
+export const VISUAL_MEDIA_EXTENSIONS = {
+  image: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'],
+  pdf: ['.pdf'],
+} as const;
+
+export const ALL_VISUAL_EXTENSIONS = [
+  ...VISUAL_MEDIA_EXTENSIONS.image,
+  ...VISUAL_MEDIA_EXTENSIONS.pdf,
+];
+
+export type VisualMediaType = 'image' | 'pdf';
+
+/**
+ * Derives the media type from a file extension.
+ * Returns null if the extension is not supported.
+ */
+export function getVisualMediaType(fileName: string): VisualMediaType | null {
+  const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+  if (VISUAL_MEDIA_EXTENSIONS.image.includes(ext as any)) return 'image';
+  if (VISUAL_MEDIA_EXTENSIONS.pdf.includes(ext as any)) return 'pdf';
+  return null;
+}
+
+// Visual media item — lives in project.visualMedia[]
+export interface VisualMediaItem {
+  uuid: string;
+  displayName: string;
+  mediaFileName: string; // filename on disk (e.g., "a1b2c3d4_battle-map.jpg")
+  mediaPath: string; // relative path from project folder (e.g., "media/visuals/a1b2c3d4_battle-map.jpg")
+  mediaType: VisualMediaType;
+  folder?: string; // optional folder tag for organization
+  linkedCueUuid?: string; // optional reference to an AudioItem UUID
+  pdfPage?: number; // optional page number for PDFs
+  linkDelay?: number; // signed seconds; >0 audio first, <0 visual first, 0 simultaneous (default: 0)
+  fadeIn?: number; // seconds, non-negative (default: 0)
+  fadeOut?: number; // seconds, non-negative (default: 0)
+}
+
+// Base item interface that all items extend from
+export interface BaseItem {
+  uuid: string;
+  index: number[];
+  displayName: string;
+  color: string;
+  type: 'audio' | 'group' | 'action'; // Extensible for future item types
+}
+
+// Audio-specific properties
+export interface AudioItem extends BaseItem {
+  type: 'audio';
+  mediaFileName: string;
+  mediaPath: string; // Relative path from project folder (e.g., "media/audio.mp3")
+  waveformPath: string;
+  waveform?: WaveformData; // Optional: waveform data for visualization
+  inPoint: number; // in seconds
+  outPoint: number; // in seconds
+  volume: number; // 0-2 (1 is normal, >1 is louder, <1 is quieter)
+  endBehavior: EndBehavior;
+  startBehavior: StartBehavior;
+  customActions: CustomAction[];
+  duckingBehavior: DuckingBehavior;
+  duration: number; // total duration in seconds
+  fadeOutDuration: number; // fade out duration in seconds when stopping (default: 1)
+  playFade: number; // fade in duration when playing (default: 0)
+  stopFade: number; // fade out duration before end (default: 0)
+  crossFade: number; // cross-fade duration to next track (default: 0)
+}
+
+// Waveform data format (from ffmpeg/audiowaveform)
+export interface WaveformData {
+  length: number;
+  duration: number;
+  peaks: number[]; // Normalized values between 0 and 1
+}
+
+// Group item properties
+export interface GroupItem extends BaseItem {
+  type: 'group';
+  children: (AudioItem | GroupItem)[];
+  startBehavior: GroupStartBehavior;
+  endBehavior: EndBehavior;
+  isExpanded: boolean; // UI state
+}
+
+// End behavior options
+export interface EndBehavior {
+  action: 'nothing' | 'next' | 'goto-item' | 'goto-index' | 'loop';
+  targetUuid?: string; // for goto-item
+  targetIndex?: number[]; // for goto-index
+}
+
+// Start behavior options
+export interface StartBehavior {
+  action: 'nothing' | 'play-next' | 'play-item' | 'play-index';
+  targetUuid?: string;
+  targetIndex?: number[];
+}
+
+// Group start behavior
+export interface GroupStartBehavior {
+  action: 'play-first' | 'play-all';
+}
+
+// Custom action at specific time
+export interface CustomAction {
+  timePoint: number; // in seconds
+  action: CustomActionType;
+}
+
+export type CustomActionType = 
+  | { type: 'play-item'; uuid: string }
+  | { type: 'play-index'; index: number[] }
+  | { type: 'stop-all' }
+  | { type: 'http-request'; request: HttpRequest };
+
+export interface HttpRequest {
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  url: string;
+  contentType: 'form' | 'json';
+  body?: Record<string, any>;
+}
+
+// Ducking behavior
+export interface DuckingBehavior {
+  mode: 'stop-all' | 'no-ducking' | 'duck-others';
+  duckLevel?: number; // 0-1, volume multiplier for other cues
+  duckFadeIn?: number; // fade in duration in seconds when ducking (default: 0.25)
+  duckFadeOut?: number; // fade out duration in seconds when restoring (default: 1)
+}
+
+// Cart slot key binding
+export interface CartSlotKeyBinding {
+  key: string;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}
+
+export type GlobalActionId = 'pause-resume' | 'toggle-loop' | 'stop-all' | 'volume-up' | 'volume-down';
+
+export type GlobalKeyBindings = Record<GlobalActionId, CartSlotKeyBinding>;
+
+export const DEFAULT_GLOBAL_KEY_BINDINGS: GlobalKeyBindings = {
+  'pause-resume': { key: ' ',          ctrlKey: false, shiftKey: false, altKey: false },
+  'toggle-loop':  { key: 'ShiftRight', ctrlKey: false, shiftKey: false, altKey: false },
+  'stop-all':     { key: 'Escape',     ctrlKey: false, shiftKey: false, altKey: false },
+  'volume-up':    { key: 'w',          ctrlKey: false, shiftKey: false, altKey: false },
+  'volume-down':  { key: 's',          ctrlKey: false, shiftKey: false, altKey: false },
+};
+
+// Cart player item
+export interface CartItem {
+  slot: number; // 0-15
+  itemUuid: string;
+  index: number[]; // [-1, slot] for API triggering
+}
+
+// Project structure
+export interface Project {
+  name: string;
+  version: string;
+  schemaVersion: number;
+  folderPath: string;
+  items: (AudioItem | GroupItem)[];
+  cartItems: CartItem[];
+  cartSlotKeys?: Record<number, CartSlotKeyBinding>;
+  globalKeyBindings?: GlobalKeyBindings;
+  cartOnlyItems: AudioItem[]; // Items that exist only in cart (not in playlist)
+  visualMedia: VisualMediaItem[]; // Visual media items (images, PDFs)
+  visualFolders: string[]; // User-defined folder tags for visual media organization
+  visualDisplayEnabled?: boolean; // Per-project toggle; absent or true => visual subsystem active
+  theme: Theme;
+  createdAt: string;
+  lastModified: string;
+}
+
+// Theme configuration
+export interface Theme {
+  mode: 'light' | 'dark';
+  accentColor: string;
+}
+
+// Active playback state
+export interface ActiveCue {
+  uuid: string;
+  displayName: string;
+  startTime: number;
+  currentTime: number;
+  duration: number;
+  volume: number;
+  isDucked: boolean;
+  originalVolume: number;
+  audioContext?: AudioContext;
+  audioSource?: AudioBufferSourceNode;
+  gainNode?: GainNode;
+}
+
+// Predefined colors for items
+export const PRESET_COLORS = [
+  '#FF0000', // Red
+  '#FF6600', // Orange
+  '#FFCC00', // Yellow
+  '#99CC00', // Lime
+  '#00CC00', // Green
+  '#00CC99', // Teal
+  '#00CCFF', // Cyan
+  '#0066FF', // Blue
+  '#3300FF', // Indigo
+  '#9900FF', // Purple
+  '#FF00CC', // Magenta
+  '#FF0066', // Pink
+  '#CC0000', // Dark Red
+  '#996600', // Brown
+  '#666666', // Gray
+  '#333333'  // Dark Gray
+];
+
+// Default values
+export const DEFAULT_THEME: Theme = {
+  mode: 'dark',
+  accentColor: '#DA1E28'
+};
+
+// Shared base defaults for all audio items
+const BASE_AUDIO_DEFAULTS = {
+  color: PRESET_COLORS[0],
+  inPoint: 0,
+  volume: 1.0,
+  startBehavior: { action: 'nothing' } as const,
+  customActions: [] as any[],
+  fadeOutDuration: 1.0,
+  playFade: 0,
+  stopFade: 0,
+  crossFade: 0
+};
+
+export const DEFAULT_AUDIO_ITEM: Partial<AudioItem> = {
+  ...BASE_AUDIO_DEFAULTS,
+  endBehavior: { action: 'next' }, // Default: play next item
+  duckingBehavior: { 
+    mode: 'stop-all', // Default for playlist items: stop all other cues
+    duckFadeIn: 0.25,
+    duckFadeOut: 1.0
+  },
+};
+
+// Default for cart items (different from playlist)
+export const DEFAULT_CART_AUDIO_ITEM: Partial<AudioItem> = {
+  ...BASE_AUDIO_DEFAULTS,
+  endBehavior: { action: 'nothing' },
+  duckingBehavior: { 
+    mode: 'duck-others', // Default for cart items: duck to 0.2
+    duckLevel: 0.2,
+    duckFadeIn: 0.25,
+    duckFadeOut: 1.0
+  },
+};
+
+export const DEFAULT_GROUP_ITEM: Partial<GroupItem> = {
+  color: PRESET_COLORS[8],
+  startBehavior: { action: 'play-first' },
+  endBehavior: { action: 'nothing' },
+  isExpanded: true,
+  children: []
+};
+
+// Default cart slot key mappings: 1-9 → slots 0-8, 0 → slot 9, Ctrl+1-6 → slots 10-15
+export const DEFAULT_CART_SLOT_KEYS: Record<number, CartSlotKeyBinding> = {
+  0:  { key: '1', ctrlKey: false, shiftKey: false, altKey: false },
+  1:  { key: '2', ctrlKey: false, shiftKey: false, altKey: false },
+  2:  { key: '3', ctrlKey: false, shiftKey: false, altKey: false },
+  3:  { key: '4', ctrlKey: false, shiftKey: false, altKey: false },
+  4:  { key: '5', ctrlKey: false, shiftKey: false, altKey: false },
+  5:  { key: '6', ctrlKey: false, shiftKey: false, altKey: false },
+  6:  { key: '7', ctrlKey: false, shiftKey: false, altKey: false },
+  7:  { key: '8', ctrlKey: false, shiftKey: false, altKey: false },
+  8:  { key: '9', ctrlKey: false, shiftKey: false, altKey: false },
+  9:  { key: '0', ctrlKey: false, shiftKey: false, altKey: false },
+  10: { key: '1', ctrlKey: true, shiftKey: false, altKey: false },
+  11: { key: '2', ctrlKey: true, shiftKey: false, altKey: false },
+  12: { key: '3', ctrlKey: true, shiftKey: false, altKey: false },
+  13: { key: '4', ctrlKey: true, shiftKey: false, altKey: false },
+  14: { key: '5', ctrlKey: true, shiftKey: false, altKey: false },
+  15: { key: '6', ctrlKey: true, shiftKey: false, altKey: false },
+};

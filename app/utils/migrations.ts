@@ -1,0 +1,121 @@
+import { DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+
+// --- Migration functions ---
+// Each migration takes a raw (any-typed) project object and mutates it in place.
+// Migrations MUST be idempotent — running on an already-migrated file is a no-op.
+
+function migrateV0ToV1(project: any): void {
+  // Add cartOnlyItems if missing
+  if (!project.cartOnlyItems) {
+    project.cartOnlyItems = [];
+  }
+
+  // Add cartSlotKeys if missing — use defaults
+  if (!project.cartSlotKeys) {
+    project.cartSlotKeys = { ...DEFAULT_CART_SLOT_KEYS };
+  }
+
+  const migrateItem = (item: any): void => {
+    if (item.type === 'audio') {
+      // Add fadeOutDuration if missing
+      if (item.fadeOutDuration === undefined) {
+        item.fadeOutDuration = 1.0;
+      }
+
+      // Add playFade/stopFade/crossFade if missing
+      if (item.playFade === undefined) {
+        item.playFade = 0;
+      }
+      if (item.stopFade === undefined) {
+        item.stopFade = 0;
+      }
+      if (item.crossFade === undefined) {
+        item.crossFade = 0;
+      }
+
+      // Add ducking fade times if missing
+      if (item.duckingBehavior) {
+        if (item.duckingBehavior.duckFadeIn === undefined) {
+          item.duckingBehavior.duckFadeIn = 0.25;
+        }
+        if (item.duckingBehavior.duckFadeOut === undefined) {
+          item.duckingBehavior.duckFadeOut = 1.0;
+        }
+      }
+    } else if (item.type === 'group') {
+      if (item.children) {
+        for (const child of item.children) {
+          migrateItem(child);
+        }
+      }
+    }
+  };
+
+  // Migrate all items (playlist + cart-only)
+  if (project.items) {
+    for (const item of project.items) {
+      migrateItem(item);
+    }
+  }
+  if (project.cartOnlyItems) {
+    for (const item of project.cartOnlyItems) {
+      migrateItem(item);
+    }
+  }
+}
+
+function migrateV1ToV2(project: any): void {
+  // Add visualMedia array if missing
+  if (!project.visualMedia) {
+    project.visualMedia = [];
+  }
+  // Add visualFolders array if missing
+  if (!project.visualFolders) {
+    project.visualFolders = [];
+  }
+}
+
+// --- Migration registry ---
+// Index N = migration from version N to N+1
+const migrations: Array<(project: any) => void> = [
+  migrateV0ToV1, // 0 → 1
+  migrateV1ToV2, // 1 → 2
+];
+
+export const CURRENT_SCHEMA_VERSION = migrations.length; // 1
+
+// --- Validation ---
+
+/**
+ * Validates that parsed JSON has the minimum required structure for a project file.
+ * Throws a descriptive error if validation fails.
+ */
+export function validateProjectStructure(json: any): void {
+  if (!json || typeof json !== 'object') {
+    throw new Error('Project file is not a valid JSON object');
+  }
+  if (typeof json.name !== 'string' || !json.name) {
+    throw new Error('Project file is missing required field: "name"');
+  }
+  if (!Array.isArray(json.items)) {
+    throw new Error('Project file is missing required field: "items" (expected array)');
+  }
+}
+
+// --- Migration runner ---
+
+/**
+ * Runs all pending migrations on a project object, mutating it in place.
+ * Sets schemaVersion to CURRENT_SCHEMA_VERSION after all migrations complete.
+ */
+export function runMigrations(project: any): void {
+  const fromVersion: number = typeof project.schemaVersion === 'number'
+    ? project.schemaVersion
+    : 0;
+
+  for (let v = fromVersion; v < CURRENT_SCHEMA_VERSION; v++) {
+    migrations[v](project);
+  }
+
+  project.schemaVersion = CURRENT_SCHEMA_VERSION;
+}
