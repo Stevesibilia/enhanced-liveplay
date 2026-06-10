@@ -10,6 +10,9 @@ const ffmpeg = require('fluent-ffmpeg');
 const { promisify } = require('util');
 const https = require('https');
 const execPromise = promisify(exec);
+const { pathIsInProjectFolder } = require('./lib/path-guard');
+const { compareVersions } = require('./lib/version');
+const { getMimeType } = require('./lib/mime');
 
 // Register custom protocol as privileged (must be before app ready)
 protocol.registerSchemesAsPrivileged([
@@ -205,20 +208,6 @@ let lastDisplayState = null; // Newest display state; buffered for flush + reope
 let playerReady = false; // True once the player renderer has signalled it is listening
 let visualDisplayEnabled = true; // Per-project flag mirrored from renderer; gates player window menu item
 
-// Guard: resolve a path and verify it lives inside the active project folder.
-// Returns the resolved path on success, or null if outside the project.
-// If no project is open yet, allows access (user is selecting files via native dialogs).
-function pathIsInProjectFolder(requestedPath) {
-  if (!currentProject) return path.resolve(requestedPath);
-  const projectFolder = path.dirname(currentProject);
-  const resolved = path.resolve(requestedPath);
-  // Ensure the resolved path starts with the project folder (+ separator to avoid prefix tricks)
-  if (resolved === projectFolder || resolved.startsWith(projectFolder + path.sep)) {
-    return resolved;
-  }
-  return null;
-}
-
 // Check if --dev flag is present in command line arguments
 const isDevMode = process.argv.includes('--dev') || !app.isPackaged;
 
@@ -413,21 +402,6 @@ async function checkForManualUpdate() {
 }
 
 // Simple version comparison (e.g., "1.2.3" vs "1.2.4")
-function compareVersions(v1, v2) {
-  const parts1 = v1.split('.').map(Number);
-  const parts2 = v2.split('.').map(Number);
-  
-  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-    const num1 = parts1[i] || 0;
-    const num2 = parts2[i] || 0;
-    
-    if (num1 > num2) return 1;
-    if (num1 < num2) return -1;
-  }
-  
-  return 0;
-}
-
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -1164,7 +1138,7 @@ ipcMain.handle('select-visual-media-files', async () => {
 
 ipcMain.handle('read-file', async (event, filePath) => {
   try {
-    const safe = pathIsInProjectFolder(filePath);
+    const safe = pathIsInProjectFolder(filePath, currentProject);
     if (!safe) return { success: false, error: 'Path outside project folder' };
     const data = await fs.promises.readFile(safe, 'utf8');
     return { success: true, data };
@@ -1175,7 +1149,7 @@ ipcMain.handle('read-file', async (event, filePath) => {
 
 ipcMain.handle('read-audio-file', async (event, filePath) => {
   try {
-    const safe = pathIsInProjectFolder(filePath);
+    const safe = pathIsInProjectFolder(filePath, currentProject);
     if (!safe) return { success: false, error: 'Path outside project folder' };
     const data = await fs.promises.readFile(safe);
     // Convert Node.js Buffer to ArrayBuffer
@@ -1188,7 +1162,7 @@ ipcMain.handle('read-audio-file', async (event, filePath) => {
 
 ipcMain.handle('write-file', async (event, filePath, data) => {
   try {
-    const safe = pathIsInProjectFolder(filePath);
+    const safe = pathIsInProjectFolder(filePath, currentProject);
     if (!safe) return { success: false, error: 'Path outside project folder' };
     await fs.promises.writeFile(safe, data, 'utf8');
     return { success: true };
@@ -1201,7 +1175,7 @@ ipcMain.handle('copy-file', async (event, source, destination) => {
   try {
     // Source may be outside the project (user-selected via native dialog) — only guard destination
     const safeSrc = path.resolve(source);
-    const safeDst = pathIsInProjectFolder(destination);
+    const safeDst = pathIsInProjectFolder(destination, currentProject);
     if (!safeDst) return { success: false, error: 'Destination outside project folder' };
     // Ensure destination directory exists
     const destDir = path.dirname(safeDst);
@@ -1215,7 +1189,7 @@ ipcMain.handle('copy-file', async (event, source, destination) => {
 
 ipcMain.handle('ensure-directory', async (event, dirPath) => {
   try {
-    const safe = pathIsInProjectFolder(dirPath);
+    const safe = pathIsInProjectFolder(dirPath, currentProject);
     if (!safe) return { success: false, error: 'Path outside project folder' };
     await fs.promises.mkdir(safe, { recursive: true });
     return { success: true };
@@ -1396,17 +1370,6 @@ ipcMain.handle('read-visual-media', async (event, projectFolderPath, mediaPath) 
     return { success: false, error: error.message };
   }
 });
-
-// Helper to get MIME type from file path
-function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const mimeTypes = {
-    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
-    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
-    '.pdf': 'application/pdf'
-  };
-  return mimeTypes[ext] || 'application/octet-stream';
-}
 
 // Delete visual media file from disk
 ipcMain.handle('delete-visual-media', async (event, projectFolderPath, mediaPath) => {
