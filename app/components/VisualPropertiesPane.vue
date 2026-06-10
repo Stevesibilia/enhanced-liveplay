@@ -342,8 +342,8 @@ const onClose = () => emit('close');
   }
 
   &.missing {
-    color: var(--color-danger, #e57373);
-    .material-symbols-rounded { color: var(--color-danger, #e57373); }
+    color: var(--color-danger);
+    .material-symbols-rounded { color: var(--color-danger); }
   }
 }
 
@@ -359,10 +359,10 @@ const onClose = () => emit('close');
   &:hover { background: var(--color-surface-hover); }
 
   &.danger {
-    color: var(--color-danger, #e57373);
+    color: var(--color-danger);
 
     &:hover {
-      background: rgba(229, 115, 115, 0.12);
+      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
     }
   }
 }

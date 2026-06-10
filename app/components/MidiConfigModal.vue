@@ -275,7 +275,7 @@ onUnmounted(() => {
 }
 
 .action-row.learning {
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
 }
 
 .action-label {
@@ -323,7 +323,7 @@ onUnmounted(() => {
 }
 
 .learn-btn.active {
-  background: var(--color-accent, #3b82f6);
+  background: var(--color-accent);
   color: white;
   border-color: transparent;
 }
@@ -353,7 +353,7 @@ onUnmounted(() => {
 }
 
 .done-btn {
-  background: var(--color-accent, #3b82f6);
+  background: var(--color-accent);
   color: white;
   border-color: transparent;
 }
@@ -406,7 +406,7 @@ onUnmounted(() => {
 }
 
 .confirm-btn {
-  background: var(--color-accent, #3b82f6);
+  background: var(--color-accent);
   color: white;
   border-color: transparent;
 }

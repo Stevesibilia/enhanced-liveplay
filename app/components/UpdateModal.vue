@@ -329,10 +329,10 @@ const handleCancel = () => {
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: rgba(218, 30, 40, 0.1);
-  border: 1px solid rgba(218, 30, 40, 0.3);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
   border-radius: 8px;
-  color: #da1e28;
+  color: var(--color-danger);
   margin-top: 16px;
 
   .material-symbols-outlined {

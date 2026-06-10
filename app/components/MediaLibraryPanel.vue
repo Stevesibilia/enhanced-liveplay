@@ -431,7 +431,7 @@ const executeDelete = async () => {
   &.drag-active {
     outline: 2px dashed var(--color-accent);
     outline-offset: -4px;
-    background-color: rgba(218, 30, 40, 0.05);
+    background-color: color-mix(in srgb, var(--color-accent) 5%, transparent);
   }
 }
 
@@ -518,7 +518,7 @@ const executeDelete = async () => {
     color: var(--color-text-secondary);
 
     &:hover {
-      color: var(--color-danger, #e53935);
+      color: var(--color-danger);
       background: rgba(0, 0, 0, 0.15);
     }
 
@@ -532,7 +532,7 @@ const executeDelete = async () => {
   }
 
   &.active {
-    background-color: rgba(218, 30, 40, 0.15);
+    background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
     color: var(--color-accent);
     .material-symbols-rounded { color: var(--color-accent); }
   }
@@ -540,7 +540,7 @@ const executeDelete = async () => {
   &.drop-target {
     outline: 2px dashed var(--color-accent);
     outline-offset: -2px;
-    background-color: rgba(218, 30, 40, 0.1);
+    background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
   }
 }
 
