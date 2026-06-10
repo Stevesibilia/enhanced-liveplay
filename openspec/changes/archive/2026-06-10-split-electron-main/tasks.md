@@ -41,4 +41,4 @@
 - [x] 5.3 Create `electron/updater.js` (autoUpdater config/feed, `checkForManualUpdate` using `lib/version.js`)
 - [x] 5.4 Reduce main.js to bootstrap: requires, protocol registration, single-instance lock, `app` lifecycle handlers, ordered init + `register()` calls (~120 lines); confirm no `ipcMain` or `new BrowserWindow` remain in it
 - [x] 5.5 Verify only main.js subscribes to `app` events; no module-scope mutable globals outside state.js
-- [ ] 5.6 Full manual smoke checklist (design D5/spec): boot, project open, cue plays, player window publishes, YouTube download, .lpa export/import, menu language switch, minimal mode, HTTP API trigger (`curl localhost:8080/api/trigger/uuid/<uuid>`), update check
+- [x] 5.6 Full manual smoke checklist (design D5/spec): boot, project open, cue plays, player window publishes, YouTube download, .lpa export/import, menu language switch, minimal mode, HTTP API trigger (`curl localhost:8080/api/trigger/uuid/<uuid>`), update check
