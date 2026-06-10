@@ -14,14 +14,14 @@
 - [x] 2.1 Create `electron/state.js` owning shared refs (`mainWindow`, `playerWindow`, `stateViewerWindow`, `currentProject`, `playerReady`, `visualDisplayEnabled`, ffmpeg path/availability, yt-dlp path/readiness, `apiServer`, `isDevMode`) with getters/setters
 - [x] 2.2 Create `electron/windows.js` with `createWindow`, `createStateViewerWindow`, `createPlayerWindow`, `closePlayerWindow`, and minimal-mode enter/exit logic; window refs stored via state.js
 - [x] 2.3 Rewire main.js to use state.js getters/setters everywhere it touched the old globals; verify no state value is captured at require time
-- [ ] 2.4 Manual smoke: all three windows open/close, player publish handshake works (`player-ready`), minimal mode toggles, second-instance and macOS `open-file` still focus/open correctly
+- [x] 2.4 Manual smoke: all three windows open/close, player publish handshake works (`player-ready`), minimal mode toggles, second-instance and macOS `open-file` still focus/open correctly
 
 ## 3. PR 3 — media/ modules
 
-- [ ] 3.1 Create `electron/media/ffmpeg.js` (`checkAndSetupFfmpeg`, path resolution incl. asar-unpacked handling); status recorded via state.js
-- [ ] 3.2 Create `electron/media/ytdlp.js` (`initializeYtDlp`, 7-day refresh, backup/restore, `search-youtube` + `download-youtube-audio` handler logic)
-- [ ] 3.3 Create `electron/media/waveform.js` (`generate-waveform` handler logic, ffmpeg invocation)
-- [ ] 3.4 Move corresponding `ipcMain.handle` registrations with their logic; channel names and payloads unchanged
+- [x] 3.1 Create `electron/media/ffmpeg.js` (`checkAndSetupFfmpeg`, path resolution incl. asar-unpacked handling); status recorded via state.js
+- [x] 3.2 Create `electron/media/ytdlp.js` (`initializeYtDlp`, 7-day refresh, backup/restore, `search-youtube` + `download-youtube-audio` handler logic)
+- [x] 3.3 Create `electron/media/waveform.js` (`generate-waveform` handler logic, ffmpeg invocation)
+- [x] 3.4 Move corresponding `ipcMain.handle` registrations with their logic; channel names and payloads unchanged
 - [ ] 3.5 Manual smoke: waveform generates for new import, YouTube search returns results, download lands mp3 in project, ffmpeg fallback message intact when binary missing
 
 ## 4. PR 4 — ipc/ handler modules with register()
