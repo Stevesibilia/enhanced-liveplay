@@ -13,21 +13,27 @@ const execPromise = promisify(exec);
 const { pathIsInProjectFolder } = require('./lib/path-guard');
 const { compareVersions } = require('./lib/version');
 const { getMimeType } = require('./lib/mime');
+const state = require('./state');
+const {
+  createWindow,
+  createStateViewerWindow,
+  createPlayerWindow,
+  closePlayerWindow,
+  enterMinimalMode,
+  exitMinimalMode,
+} = require('./windows');
 
 // Register custom protocol as privileged (must be before app ready)
 protocol.registerSchemesAsPrivileged([
   { scheme: 'local-media', privileges: { bypassCSP: true, stream: true, supportFetchAPI: true } }
 ]);
 
-let ffmpegPath = null;
-let ffmpegAvailable = false;
-
 // Setup bundled ffmpeg - always use the bundled version to avoid
 // issues on OS's with strict security requirements
 async function checkAndSetupFfmpeg() {
   try {
     const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-    ffmpegPath = ffmpegInstaller.path;
+    let ffmpegPath = ffmpegInstaller.path;
     
     // In packaged app, the path may be inside app.asar - resolve it
     if (ffmpegPath.includes('app.asar')) {
@@ -36,7 +42,8 @@ async function checkAndSetupFfmpeg() {
     
     // Verify bundled version works
     await execPromise(`"${ffmpegPath}" -version`);
-    ffmpegAvailable = true;
+    state.setFfmpegPath(ffmpegPath);
+    state.setFfmpegAvailable(true);
     console.log('Using bundled ffmpeg:', ffmpegPath);
     
     // Set ffprobe path from @ffprobe-installer/ffprobe
@@ -81,9 +88,9 @@ async function checkAndSetupFfmpeg() {
       
       // Verify the system binary works
       await execPromise(`"${systemFfmpegPath}" -version`);
-      ffmpegPath = systemFfmpegPath;
-      ffmpegAvailable = true;
-      console.log('Using system ffmpeg:', ffmpegPath);
+      state.setFfmpegPath(systemFfmpegPath);
+      state.setFfmpegAvailable(true);
+      console.log('Using system ffmpeg:', systemFfmpegPath);
       
       // Try to find system ffprobe too
       try {
@@ -99,16 +106,13 @@ async function checkAndSetupFfmpeg() {
       return true;
     } catch (systemError) {
       console.error('System ffmpeg not found either:', systemError.message);
-      ffmpegAvailable = false;
+      state.setFfmpegAvailable(false);
       return false;
     }
   }
 }
 
 // Initialize yt-dlp wrapper
-let ytDlpPath;
-let ytDlpReady = false;
-
 async function initializeYtDlp() {
   try {
     // Set up download directory in user data folder
@@ -152,7 +156,7 @@ async function initializeYtDlp() {
           fs.copyFileSync(binaryPath, backupPath);
           fs.unlinkSync(binaryPath);
         }
-        ytDlpPath = await YTDlpWrap.downloadFromGithub(binaryPath);
+        state.setYtDlpPath(await YTDlpWrap.downloadFromGithub(binaryPath));
         // Clean up backup on success
         if (fs.existsSync(backupPath)) {
           fs.unlinkSync(backupPath);
@@ -172,8 +176,8 @@ async function initializeYtDlp() {
     
     // Verify the binary exists and is usable
     if (fs.existsSync(binaryPath)) {
-      ytDlpPath = binaryPath;
-      ytDlpReady = true;
+      state.setYtDlpPath(binaryPath);
+      state.setYtDlpReady(true);
       
       // Log version for debugging
       try {
@@ -189,7 +193,7 @@ async function initializeYtDlp() {
     }
   } catch (error) {
     console.error('Failed to initialize yt-dlp:', error);
-    ytDlpReady = false;
+    state.setYtDlpReady(false);
     return false;
   }
 }
@@ -197,19 +201,7 @@ async function initializeYtDlp() {
 // Start initialization immediately
 initializeYtDlp();
 
-let mainWindow = null;
-let apiServer = null;
-let currentProject = null;
 let fileToOpen = null; // Store file path if app is opened with a file
-let stateViewerWindow = null; // Debug state viewer window
-let playerWindow = null; // Player display window (second monitor)
-let playerWindowBounds = null; // Session-only bounds persistence
-let lastDisplayState = null; // Newest display state; buffered for flush + reopen
-let playerReady = false; // True once the player renderer has signalled it is listening
-let visualDisplayEnabled = true; // Per-project flag mirrored from renderer; gates player window menu item
-
-// Check if --dev flag is present in command line arguments
-const isDevMode = process.argv.includes('--dev') || !app.isPackaged;
 
 // API Server Setup
 function startAPIServer(port = 8080, maxAttempts = 10) {
@@ -219,6 +211,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
   // Trigger item by UUID
   apiApp.get('/api/trigger/uuid/:uuid', (req, res) => {
     const { uuid } = req.params;
+    const mainWindow = state.getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send('trigger-item', { type: 'uuid', value: uuid });
       res.json({ success: true, message: `Triggered item ${uuid}` });
@@ -230,6 +223,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
   // Trigger item by index
   apiApp.get('/api/trigger/index/:index', (req, res) => {
     const { index } = req.params;
+    const mainWindow = state.getMainWindow();
     if (mainWindow) {
       const indexArray = index.split(',').map(i => parseInt(i.trim()));
       mainWindow.webContents.send('trigger-item', { type: 'index', value: indexArray });
@@ -242,6 +236,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
   // Stop item
   apiApp.get('/api/stop/uuid/:uuid', (req, res) => {
     const { uuid } = req.params;
+    const mainWindow = state.getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send('stop-item', { type: 'uuid', value: uuid });
       res.json({ success: true, message: `Stopped item ${uuid}` });
@@ -252,6 +247,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
 
   // Get current project info
   apiApp.get('/api/project/info', (req, res) => {
+    const currentProject = state.getCurrentProject();
     if (currentProject) {
       res.json({ success: true, project: currentProject });
     } else {
@@ -263,7 +259,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
   const tryListen = (currentPort, attemptsLeft) => {
     const server = apiApp.listen(currentPort)
       .on('listening', () => {
-        apiServer = server;
+        state.setApiServer(server);
         console.log(`E-LivePlay API Server running on http://localhost:${currentPort}`);
       })
       .on('error', (err) => {
@@ -302,6 +298,7 @@ autoUpdater.on('checking-for-update', () => {
 
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
+  const mainWindow = state.getMainWindow();
   if (mainWindow) {
     mainWindow.webContents.send('update-available', {
       currentVersion: app.getVersion(),
@@ -322,11 +319,13 @@ autoUpdater.on('error', (err) => {
   
   // Fallback to manual update check
   checkForManualUpdate().then(updateInfo => {
+    const mainWindow = state.getMainWindow();
     if (updateInfo && mainWindow) {
       mainWindow.webContents.send('manual-update-available', updateInfo);
     }
   }).catch(fallbackErr => {
     console.error('Fallback update check also failed:', fallbackErr);
+    const mainWindow = state.getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send('update-error', err.message);
     }
@@ -335,6 +334,7 @@ autoUpdater.on('error', (err) => {
 
 autoUpdater.on('download-progress', (progressObj) => {
   console.log(`Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`);
+  const mainWindow = state.getMainWindow();
   if (mainWindow) {
     mainWindow.webContents.send('update-download-progress', {
       percent: progressObj.percent,
@@ -346,6 +346,7 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info.version);
+  const mainWindow = state.getMainWindow();
   if (mainWindow) {
     mainWindow.webContents.send('update-downloaded', {
       version: info.version
@@ -399,446 +400,6 @@ async function checkForManualUpdate() {
       reject(error);
     });
   });
-}
-
-// Simple version comparison (e.g., "1.2.3" vs "1.2.4")
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1200,
-    minHeight: 700,
-    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false // Allow loading local files
-    },
-    show: false
-  });
-
-  // Use the global isDevMode flag
-  if (isDevMode) {
-    mainWindow.loadURL('http://localhost:3000');
-    // Open DevTools in development
-    mainWindow.webContents.openDevTools();
-  } else {
-    // In production, load the generated static files
-    const indexPath = path.join(__dirname, '../.output/public/index.html');
-    console.log('Loading production index from:', indexPath);
-    console.log('File exists:', fs.existsSync(indexPath));
-    
-    mainWindow.loadFile(indexPath).catch(err => {
-      console.error('Failed to load index.html:', err);
-    });
-  }
-
-  // Log any loading errors
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load:', errorCode, errorDescription);
-  });
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    
-    // Check for updates only in production
-    if (!isDevMode) {
-      // Wait a bit for the window to fully load before checking updates
-      setTimeout(() => {
-        autoUpdater.checkForUpdates().catch(err => {
-          console.error('Failed to check for updates:', err);
-        });
-      }, 3000);
-    }
-  });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
-
-  createMenu('en', isDevMode);
-  startAPIServer();
-}
-
-// Create state viewer window for debugging
-function createStateViewerWindow() {
-  if (stateViewerWindow) {
-    stateViewerWindow.focus();
-    return;
-  }
-
-  stateViewerWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    title: 'E-LivePlay - Current State Viewer',
-    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload-state-viewer.js')
-    }
-  });
-
-  // Create a simple HTML page for the state viewer
-  const stateViewerHTML = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>E-LivePlay State Viewer</title>
-      <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          background: #1e1e1e;
-          color: #d4d4d4;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          height: 100vh;
-        }
-        
-        .header {
-          background: #252526;
-          padding: 12px 20px;
-          border-bottom: 1px solid #3e3e42;
-          flex-shrink: 0;
-        }
-        
-        h1 {
-          font-size: 16px;
-          font-weight: 600;
-          color: #cccccc;
-        }
-        
-        .container {
-          flex: 1;
-          overflow-y: auto;
-          padding: 20px;
-        }
-        
-        .state-section {
-          margin-bottom: 24px;
-          background: #252526;
-          border: 1px solid #3e3e42;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        
-        .section-header {
-          background: #2d2d30;
-          padding: 10px 16px;
-          font-weight: 600;
-          font-size: 13px;
-          color: #cccccc;
-          border-bottom: 1px solid #3e3e42;
-          cursor: pointer;
-          user-select: none;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        
-        .section-header:hover {
-          background: #3e3e42;
-        }
-        
-        .collapse-icon {
-          font-size: 12px;
-          transition: transform 0.2s;
-        }
-        
-        .collapse-icon.collapsed {
-          transform: rotate(-90deg);
-        }
-        
-        .section-content {
-          padding: 16px;
-          overflow: hidden;
-        }
-        
-        .section-content.collapsed {
-          display: none;
-        }
-        
-        pre {
-          font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-          font-size: 12px;
-          line-height: 1.5;
-          overflow-x: auto;
-          white-space: pre;
-        }
-        
-        /* JSON Syntax Highlighting */
-        .json-key {
-          color: #9cdcfe;
-        }
-        
-        .json-string {
-          color: #ce9178;
-        }
-        
-        .json-number {
-          color: #b5cea8;
-        }
-        
-        .json-boolean {
-          color: #569cd6;
-        }
-        
-        .json-null {
-          color: #569cd6;
-        }
-        
-        .update-time {
-          font-size: 11px;
-          color: #858585;
-          margin-top: 8px;
-        }
-        
-        ::-webkit-scrollbar {
-          width: 10px;
-          height: 10px;
-        }
-        
-        ::-webkit-scrollbar-track {
-          background: #1e1e1e;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-          background: #424242;
-          border-radius: 5px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background: #4e4e4e;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>E-LivePlay - Current State Viewer (Development Mode)</h1>
-      </div>
-      <div class="container" id="container"></div>
-      
-      <script>
-        const collapsedSections = new Set();
-        const scrollPositions = new Map();
-        
-        function syntaxHighlight(json) {
-          json = JSON.stringify(json, null, 2);
-          json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          return json.replace(/("(\\\\u[a-zA-Z0-9]{4}|\\\\[^u]|[^\\\\"])*"(\\s*:)?|\\b(true|false|null)\\b|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?)/g, function (match) {
-            let cls = 'json-number';
-            if (/^"/.test(match)) {
-              if (/:$/.test(match)) {
-                cls = 'json-key';
-              } else {
-                cls = 'json-string';
-              }
-            } else if (/true|false/.test(match)) {
-              cls = 'json-boolean';
-            } else if (/null/.test(match)) {
-              cls = 'json-null';
-            }
-            return '<span class="' + cls + '">' + match + '</span>';
-          });
-        }
-        
-        function toggleSection(sectionId) {
-          const section = document.getElementById(sectionId);
-          const icon = document.getElementById(sectionId + '-icon');
-          const content = document.getElementById(sectionId + '-content');
-          
-          if (collapsedSections.has(sectionId)) {
-            collapsedSections.delete(sectionId);
-            content.classList.remove('collapsed');
-            icon.classList.remove('collapsed');
-          } else {
-            // Save scroll position before collapsing
-            scrollPositions.set(sectionId, content.scrollTop);
-            collapsedSections.add(sectionId);
-            content.classList.add('collapsed');
-            icon.classList.add('collapsed');
-          }
-        }
-        
-        function updateState(state) {
-          console.log('[State Viewer] updateState called with:', Object.keys(state));
-          const container = document.getElementById('container');
-          if (!container) {
-            console.error('[State Viewer] Container not found!');
-            return;
-          }
-          
-          const currentScroll = container.scrollTop;
-          
-          // Save scroll positions for each section
-          const sections = container.querySelectorAll('.section-content');
-          sections.forEach(section => {
-            if (section.id) {
-              scrollPositions.set(section.id, section.scrollTop);
-            }
-          });
-          
-          let html = '';
-          
-          for (const [key, value] of Object.entries(state)) {
-            const sectionId = 'section-' + key;
-            const isCollapsed = collapsedSections.has(sectionId);
-            
-            html += \`
-              <div class="state-section">
-                <div class="section-header" onclick="toggleSection('\${sectionId}')">
-                  <span>\${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</span>
-                  <span class="collapse-icon \${isCollapsed ? 'collapsed' : ''}" id="\${sectionId}-icon">▼</span>
-                </div>
-                <div class="section-content \${isCollapsed ? 'collapsed' : ''}" id="\${sectionId}-content">
-                  <pre>\${syntaxHighlight(value)}</pre>
-                  <div class="update-time">Last updated: \${new Date().toLocaleTimeString()}</div>
-                </div>
-              </div>
-            \`;
-          }
-          
-          container.innerHTML = html;
-          console.log('[State Viewer] Updated DOM with', Object.keys(state).length, 'sections');
-          
-          // Restore scroll positions
-          container.scrollTop = currentScroll;
-          scrollPositions.forEach((scrollTop, sectionId) => {
-            const section = document.getElementById(sectionId);
-            if (section) {
-              section.scrollTop = scrollTop;
-            }
-          });
-        }
-        
-        // Listen for state updates
-        window.electronAPI.onStateUpdate((event, state) => {
-          console.log('[State Viewer] Received state update:', Object.keys(state));
-          updateState(state);
-        });
-        
-        // Initial message
-        console.log('[State Viewer] Initialized, waiting for updates...');
-        updateState({
-          message: 'Waiting for state updates from main application...'
-        });
-      </script>
-    </body>
-    </html>
-  `;
-
-  stateViewerWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(stateViewerHTML));
-
-  // Make sure the window is ready before we start receiving updates
-  stateViewerWindow.webContents.once('did-finish-load', () => {
-    console.log('[Main] State viewer window loaded and ready');
-  });
-
-  stateViewerWindow.on('closed', () => {
-    stateViewerWindow = null;
-  });
-}
-
-// Create player window for second-monitor display output
-function createPlayerWindow() {
-  if (playerWindow) {
-    playerWindow.focus();
-    return;
-  }
-
-  const windowOptions = {
-    width: 1280,
-    height: 720,
-    frame: true,
-    backgroundColor: '#000000',
-    title: 'E-LivePlay Player',
-    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: false,
-      preload: path.join(__dirname, 'preload-player.js'),
-      webSecurity: false // Allow loading local file:// images and PDFs
-    },
-    show: false
-  };
-
-  // Restore previous bounds if available (session-only)
-  if (playerWindowBounds) {
-    windowOptions.x = playerWindowBounds.x;
-    windowOptions.y = playerWindowBounds.y;
-    windowOptions.width = playerWindowBounds.width;
-    windowOptions.height = playerWindowBounds.height;
-  }
-
-  playerWindow = new BrowserWindow(windowOptions);
-
-  // Renderer is not listening until it signals 'player-ready'.
-  playerReady = false;
-
-  // Load the player HTML
-  const playerHtmlPath = path.join(__dirname, 'player.html');
-  playerWindow.loadFile(playerHtmlPath);
-
-  playerWindow.once('ready-to-show', () => {
-    playerWindow.show();
-  });
-
-  // Fallback flush in case the 'player-ready' handshake is ever missed:
-  // re-send the last state once the contents finish loading.
-  playerWindow.webContents.on('did-finish-load', () => {
-    if (lastDisplayState && playerWindow && !playerWindow.isDestroyed()) {
-      playerWindow.webContents.send('display-state', lastDisplayState);
-    }
-  });
-
-  // Handle F11 for fullscreen toggle in player window
-  playerWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F11' && input.type === 'keyDown') {
-      event.preventDefault();
-      playerWindow.setFullScreen(!playerWindow.isFullScreen());
-      playerWindow.webContents.send('toggle-fullscreen');
-    }
-  });
-
-  playerWindow.on('closed', () => {
-    playerWindow = null;
-    // Keep lastDisplayState so a reopen restores content; just mark not-ready.
-    playerReady = false;
-  });
-
-  // Notify main renderer that player window opened
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('player-window-status-changed', true);
-  }
-}
-
-function closePlayerWindow() {
-  if (!playerWindow) return;
-
-  // Persist bounds in memory for session restore
-  try {
-    playerWindowBounds = playerWindow.getBounds();
-  } catch (e) {
-    // Window may already be destroyed
-  }
-
-  playerWindow.close();
-  playerWindow = null;
-
-  // Notify main renderer that player window closed
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('player-window-status-changed', false);
-  }
 }
 
 // Translation strings for menu (default: English)
@@ -913,42 +474,42 @@ function createMenu(locale = 'en', isDev = false) {
           label: t.newProject,
           accelerator: 'CmdOrCtrl+N',
           click: () => {
-            mainWindow.webContents.send('menu-new-project');
+            state.getMainWindow().webContents.send('menu-new-project');
           }
         },
         {
           label: t.openProject,
           accelerator: 'CmdOrCtrl+O',
           click: () => {
-            mainWindow.webContents.send('menu-open-project');
+            state.getMainWindow().webContents.send('menu-open-project');
           }
         },
         {
           label: t.saveProject,
           accelerator: 'CmdOrCtrl+S',
           click: () => {
-            mainWindow.webContents.send('menu-save-project');
+            state.getMainWindow().webContents.send('menu-save-project');
           }
         },
         { type: 'separator' },
         {
           label: t.exportProject,
-          enabled: currentProject !== null,
+          enabled: state.getCurrentProject() !== null,
           click: () => {
-            mainWindow.webContents.send('menu-export-project');
+            state.getMainWindow().webContents.send('menu-export-project');
           }
         },
         {
           label: t.importProject,
           click: () => {
-            mainWindow.webContents.send('menu-import-project');
+            state.getMainWindow().webContents.send('menu-import-project');
           }
         },
         { type: 'separator' },
         {
           label: t.openProjectFolder,
           click: () => {
-            mainWindow.webContents.send('menu-open-project-folder');
+            state.getMainWindow().webContents.send('menu-open-project-folder');
           }
         },
         { type: 'separator' },
@@ -956,7 +517,7 @@ function createMenu(locale = 'en', isDev = false) {
           label: t.closeProject,
           accelerator: 'CmdOrCtrl+W',
           click: () => {
-            mainWindow.webContents.send('menu-close-project');
+            state.getMainWindow().webContents.send('menu-close-project');
           }
         },
         { type: 'separator' },
@@ -975,13 +536,13 @@ function createMenu(locale = 'en', isDev = false) {
         {
           label: t.toggleDarkMode,
           click: () => {
-            mainWindow.webContents.send('menu-toggle-dark-mode');
+            state.getMainWindow().webContents.send('menu-toggle-dark-mode');
           }
         },
         {
           label: t.changeAccentColor,
           click: () => {
-            mainWindow.webContents.send('menu-change-accent-color');
+            state.getMainWindow().webContents.send('menu-change-accent-color');
           }
         },
         { type: 'separator' },
@@ -991,6 +552,7 @@ function createMenu(locale = 'en', isDev = false) {
           click: () => {
             // Toggle fullscreen on the focused window
             const focusedWindow = BrowserWindow.getFocusedWindow();
+            const playerWindow = state.getPlayerWindow();
             if (focusedWindow) {
               focusedWindow.setFullScreen(!focusedWindow.isFullScreen());
               // Notify player renderer if it's the player window
@@ -1005,25 +567,25 @@ function createMenu(locale = 'en', isDev = false) {
           label: 'Minimal Mode',
           accelerator: 'CmdOrCtrl+M',
           click: () => {
-            mainWindow.webContents.send('menu-toggle-minimal-mode');
+            state.getMainWindow().webContents.send('menu-toggle-minimal-mode');
           }
         },
         { type: 'separator' },
         {
           label: 'Enable Visual Display',
           type: 'checkbox',
-          checked: visualDisplayEnabled,
+          checked: state.getVisualDisplayEnabled(),
           click: () => {
-            mainWindow.webContents.send('menu-toggle-visual-display');
+            state.getMainWindow().webContents.send('menu-toggle-visual-display');
           }
         },
         {
           label: 'Open/Close Player Window',
           accelerator: 'CmdOrCtrl+P',
-          enabled: visualDisplayEnabled,
+          enabled: state.getVisualDisplayEnabled(),
           click: () => {
-            if (!visualDisplayEnabled) return;
-            if (playerWindow) {
+            if (!state.getVisualDisplayEnabled()) return;
+            if (state.getPlayerWindow()) {
               closePlayerWindow();
             } else {
               createPlayerWindow();
@@ -1038,7 +600,7 @@ function createMenu(locale = 'en', isDev = false) {
             type: 'radio',
             checked: locale === localeData._metadata.code,
             click: () => {
-              mainWindow.webContents.send('menu-change-language', localeData._metadata.code);
+              state.getMainWindow().webContents.send('menu-change-language', localeData._metadata.code);
               createMenu(localeData._metadata.code, isDev);
             }
           }))
@@ -1059,6 +621,7 @@ function createMenu(locale = 'en', isDev = false) {
           label: 'Toggle Developer Tools',
           accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
           click: () => {
+            const mainWindow = state.getMainWindow();
             if (mainWindow && mainWindow.webContents) {
               mainWindow.webContents.toggleDevTools();
             }
@@ -1073,7 +636,7 @@ function createMenu(locale = 'en', isDev = false) {
         {
           label: t.about,
           click: () => {
-            mainWindow.webContents.send('menu-show-about');
+            state.getMainWindow().webContents.send('menu-show-about');
           }
         }
       ]
@@ -1086,7 +649,7 @@ function createMenu(locale = 'en', isDev = false) {
 
 // IPC Handlers
 ipcMain.handle('select-project-folder', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const result = await dialog.showOpenDialog(state.getMainWindow(), {
     properties: ['openDirectory', 'createDirectory']
   });
 
@@ -1097,7 +660,7 @@ ipcMain.handle('select-project-folder', async () => {
 });
 
 ipcMain.handle('select-project-file', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const result = await dialog.showOpenDialog(state.getMainWindow(), {
     properties: ['openFile'],
     filters: [{ name: 'E-LivePlay Project', extensions: ['liveplay'] }]
   });
@@ -1109,7 +672,7 @@ ipcMain.handle('select-project-file', async () => {
 });
 
 ipcMain.handle('select-audio-files', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const result = await dialog.showOpenDialog(state.getMainWindow(), {
     properties: ['openFile', 'multiSelections'],
     filters: [
       { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'] }
@@ -1123,7 +686,7 @@ ipcMain.handle('select-audio-files', async () => {
 });
 
 ipcMain.handle('select-visual-media-files', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const result = await dialog.showOpenDialog(state.getMainWindow(), {
     properties: ['openFile', 'multiSelections'],
     filters: [
       { name: 'Visual Media', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'pdf'] }
@@ -1138,7 +701,7 @@ ipcMain.handle('select-visual-media-files', async () => {
 
 ipcMain.handle('read-file', async (event, filePath) => {
   try {
-    const safe = pathIsInProjectFolder(filePath, currentProject);
+    const safe = pathIsInProjectFolder(filePath, state.getCurrentProject());
     if (!safe) return { success: false, error: 'Path outside project folder' };
     const data = await fs.promises.readFile(safe, 'utf8');
     return { success: true, data };
@@ -1149,7 +712,7 @@ ipcMain.handle('read-file', async (event, filePath) => {
 
 ipcMain.handle('read-audio-file', async (event, filePath) => {
   try {
-    const safe = pathIsInProjectFolder(filePath, currentProject);
+    const safe = pathIsInProjectFolder(filePath, state.getCurrentProject());
     if (!safe) return { success: false, error: 'Path outside project folder' };
     const data = await fs.promises.readFile(safe);
     // Convert Node.js Buffer to ArrayBuffer
@@ -1162,7 +725,7 @@ ipcMain.handle('read-audio-file', async (event, filePath) => {
 
 ipcMain.handle('write-file', async (event, filePath, data) => {
   try {
-    const safe = pathIsInProjectFolder(filePath, currentProject);
+    const safe = pathIsInProjectFolder(filePath, state.getCurrentProject());
     if (!safe) return { success: false, error: 'Path outside project folder' };
     await fs.promises.writeFile(safe, data, 'utf8');
     return { success: true };
@@ -1175,7 +738,7 @@ ipcMain.handle('copy-file', async (event, source, destination) => {
   try {
     // Source may be outside the project (user-selected via native dialog) — only guard destination
     const safeSrc = path.resolve(source);
-    const safeDst = pathIsInProjectFolder(destination, currentProject);
+    const safeDst = pathIsInProjectFolder(destination, state.getCurrentProject());
     if (!safeDst) return { success: false, error: 'Destination outside project folder' };
     // Ensure destination directory exists
     const destDir = path.dirname(safeDst);
@@ -1189,7 +752,7 @@ ipcMain.handle('copy-file', async (event, source, destination) => {
 
 ipcMain.handle('ensure-directory', async (event, dirPath) => {
   try {
-    const safe = pathIsInProjectFolder(dirPath, currentProject);
+    const safe = pathIsInProjectFolder(dirPath, state.getCurrentProject());
     if (!safe) return { success: false, error: 'Path outside project folder' };
     await fs.promises.mkdir(safe, { recursive: true });
     return { success: true };
@@ -1225,7 +788,7 @@ ipcMain.handle('write-clipboard-text', (event, text) => {
 
 // Update menu language from renderer
 ipcMain.handle('update-menu-language', async (event, locale) => {
-  createMenu(locale, isDevMode);
+  createMenu(locale, state.isDevMode);
   return { success: true };
 });
 
@@ -1305,9 +868,9 @@ ipcMain.handle('get-locale-data', (event, localeCode) => {
 });
 
 ipcMain.handle('set-current-project', async (event, projectPath) => {
-  currentProject = projectPath;
+  state.setCurrentProject(projectPath);
   // Rebuild menu to update enabled/disabled state of menu items
-  createMenu(currentLocale, isDevMode);
+  createMenu(currentLocale, state.isDevMode);
   return { success: true };
 });
 
@@ -1315,13 +878,13 @@ ipcMain.handle('set-current-project', async (event, projectPath) => {
 // Main process mirrors the value to drive menu state and player-window auto-close.
 ipcMain.handle('set-visual-display-enabled', async (event, enabled) => {
   const next = !!enabled;
-  const wasEnabled = visualDisplayEnabled;
-  visualDisplayEnabled = next;
+  const wasEnabled = state.getVisualDisplayEnabled();
+  state.setVisualDisplayEnabled(next);
   // Auto-close player window when visuals are disabled.
-  if (wasEnabled && !next && playerWindow) {
+  if (wasEnabled && !next && state.getPlayerWindow()) {
     closePlayerWindow();
   }
-  createMenu(currentLocale, isDevMode);
+  createMenu(currentLocale, state.isDevMode);
   return { success: true };
 });
 
@@ -1397,6 +960,7 @@ ipcMain.handle('close-player-window', () => {
 });
 
 ipcMain.handle('get-player-window-status', () => {
+  const playerWindow = state.getPlayerWindow();
   return { open: !!playerWindow && !playerWindow.isDestroyed() };
 });
 
@@ -1407,8 +971,9 @@ ipcMain.handle('push-to-player', (event, displayState) => {
   // Cache the newest state first so it survives a not-yet-ready renderer and
   // a window reopen. Only send now if the renderer has signalled readiness;
   // otherwise 'player-ready' (or did-finish-load) will flush it.
-  lastDisplayState = displayState;
-  if (playerWindow && !playerWindow.isDestroyed() && playerReady) {
+  state.setLastDisplayState(displayState);
+  const playerWindow = state.getPlayerWindow();
+  if (playerWindow && !playerWindow.isDestroyed() && state.getPlayerReady()) {
     playerWindow.webContents.send('display-state', displayState);
     return { success: true };
   }
@@ -1418,13 +983,16 @@ ipcMain.handle('push-to-player', (event, displayState) => {
 // The player renderer signals readiness after attaching its display-state
 // listener. Flush the buffered state so the first publish never gets dropped.
 ipcMain.on('player-ready', () => {
-  playerReady = true;
+  state.setPlayerReady(true);
+  const lastDisplayState = state.getLastDisplayState();
+  const playerWindow = state.getPlayerWindow();
   if (lastDisplayState && playerWindow && !playerWindow.isDestroyed()) {
     playerWindow.webContents.send('display-state', lastDisplayState);
   }
 });
 
 ipcMain.handle('toggle-player-fullscreen', () => {
+  const playerWindow = state.getPlayerWindow();
   if (playerWindow && !playerWindow.isDestroyed()) {
     playerWindow.setFullScreen(!playerWindow.isFullScreen());
     playerWindow.webContents.send('toggle-fullscreen');
@@ -1435,6 +1003,7 @@ ipcMain.handle('toggle-player-fullscreen', () => {
 
 // Handle F11 from player renderer
 ipcMain.on('player-toggle-fullscreen', () => {
+  const playerWindow = state.getPlayerWindow();
   if (playerWindow && !playerWindow.isDestroyed()) {
     playerWindow.setFullScreen(!playerWindow.isFullScreen());
     playerWindow.webContents.send('toggle-fullscreen');
@@ -1449,7 +1018,7 @@ ipcMain.handle('export-project', async (event, projectFolderPath, projectName = 
     const defaultName = projectName || path.basename(projectFolderPath);
     
     // Show save dialog for .lpa file
-    const result = await dialog.showSaveDialog(mainWindow, {
+    const result = await dialog.showSaveDialog(state.getMainWindow(), {
       title: 'Export Project',
       defaultPath: `${defaultName}.lpa`,
       filters: [
@@ -1530,7 +1099,7 @@ ipcMain.handle('import-project', async (event) => {
     const extractZip = require('extract-zip');
     
     // Show open dialog for .lpa file
-    const fileResult = await dialog.showOpenDialog(mainWindow, {
+    const fileResult = await dialog.showOpenDialog(state.getMainWindow(), {
       title: 'Import Project',
       properties: ['openFile'],
       filters: [
@@ -1546,7 +1115,7 @@ ipcMain.handle('import-project', async (event) => {
     const fileName = path.basename(archivePath);
 
     // Show folder dialog for extraction location
-    const folderResult = await dialog.showOpenDialog(mainWindow, {
+    const folderResult = await dialog.showOpenDialog(state.getMainWindow(), {
       title: 'Select Extraction Location',
       properties: ['openDirectory', 'createDirectory']
     });
@@ -1611,7 +1180,7 @@ ipcMain.handle('import-lpa-file', async (event, archivePath) => {
     const fileName = path.basename(archivePath);
 
     // Show folder dialog for extraction location
-    const folderResult = await dialog.showOpenDialog(mainWindow, {
+    const folderResult = await dialog.showOpenDialog(state.getMainWindow(), {
       title: 'Select Extraction Location',
       properties: ['openDirectory', 'createDirectory']
     });
@@ -1670,54 +1239,32 @@ ipcMain.handle('import-lpa-file', async (event, archivePath) => {
 });
 
 // State viewer: Receive state updates from renderer and forward to state viewer window
-ipcMain.on('update-app-state', (event, state) => {
-  //console.log('[Main] Received state update, viewer window exists:', !!stateViewerWindow);
+ipcMain.on('update-app-state', (event, appState) => {
+  const stateViewerWindow = state.getStateViewerWindow();
   if (stateViewerWindow && !stateViewerWindow.isDestroyed()) {
     // Make sure webContents is ready
     if (stateViewerWindow.webContents && !stateViewerWindow.webContents.isDestroyed()) {
       console.log('[Main] Forwarding state to viewer window');
-      stateViewerWindow.webContents.send('state-update', state);
+      stateViewerWindow.webContents.send('state-update', appState);
     }
   }
 });
 
 // Check if dev mode is enabled
 ipcMain.handle('is-dev-mode', () => {
-  return isDevMode;
+  return state.isDevMode;
 });
 
-// Minimal mode — save bounds, resize, always-on-top
-let savedBounds = null;
+// Minimal mode — logic lives in windows.js
+ipcMain.handle('enter-minimal-mode', () => enterMinimalMode());
 
-ipcMain.handle('enter-minimal-mode', () => {
-  if (!mainWindow) return;
-  savedBounds = mainWindow.getBounds();
-  mainWindow.setMinimumSize(200, 100);
-  mainWindow.setResizable(false);
-  mainWindow.setResizable(true);
-  mainWindow.setMenuBarVisibility(false);
-  setTimeout(() => {
-    if (mainWindow) mainWindow.setSize(420, 340);
-  }, 200);
-});
-
-ipcMain.handle('exit-minimal-mode', () => {
-  if (!mainWindow) return;
-  mainWindow.setAlwaysOnTop(false);
-  mainWindow.setMenuBarVisibility(true);
-  mainWindow.setMinimumSize(1200, 700);
-  mainWindow.setMaximumSize(0, 0); // Unrestricted in full mode
-  if (savedBounds) {
-    mainWindow.setBounds(savedBounds);
-    savedBounds = null;
-  }
-});
+ipcMain.handle('exit-minimal-mode', () => exitMinimalMode());
 
 // Check FFmpeg availability
 ipcMain.handle('check-ffmpeg', async () => {
   return {
-    available: ffmpegAvailable,
-    path: ffmpegPath || null
+    available: state.getFfmpegAvailable(),
+    path: state.getFfmpegPath() || null
   };
 });
 
@@ -1734,6 +1281,7 @@ ipcMain.handle('generate-waveform', async (event, audioFilePath, outputPath) => 
     }
     
     // Use the detected ffmpeg path
+    const ffmpegPath = state.getFfmpegPath();
     if (ffmpegPath) {
       ffmpeg.setFfmpegPath(ffmpegPath);
     }
@@ -1855,33 +1403,33 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     console.log(`Video URL: ${videoUrl}`);
     
     // Wait for yt-dlp to be ready (with timeout)
-    if (!ytDlpReady) {
+    if (!state.getYtDlpReady()) {
       console.log('Waiting for yt-dlp to initialize...');
       let attempts = 0;
-      while (!ytDlpReady && attempts < 30) { // Wait up to 30 seconds
+      while (!state.getYtDlpReady() && attempts < 30) { // Wait up to 30 seconds
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
       }
       
-      if (!ytDlpReady) {
+      if (!state.getYtDlpReady()) {
         reject(new Error('yt-dlp initialization timed out. Please try again.'));
         return;
       }
     }
     
-    if (!ytDlpPath) {
+    if (!state.getYtDlpPath()) {
       reject(new Error('yt-dlp binary path not available. Please restart the application.'));
       return;
     }
     
-    if (!ffmpegAvailable) {
+    if (!state.getFfmpegAvailable()) {
       reject(new Error('Bundled FFmpeg failed to initialize. Please restart the application.'));
       return;
     }
     
     try {
       // Create YTDlpWrap instance with the binary path
-      const ytDlp = new YTDlpWrap(ytDlpPath);
+      const ytDlp = new YTDlpWrap(state.getYtDlpPath());
       
       // Build yt-dlp arguments
       const args = [
@@ -1897,16 +1445,17 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
       ];
       
       // Add ffmpeg path if we have it
+      const ffmpegPath = state.getFfmpegPath();
       if (ffmpegPath) {
         args.push('--ffmpeg-location', ffmpegPath);
       }
       
       console.log('Running yt-dlp with args:', args);
-      console.log('yt-dlp path:', ytDlpPath);
+      console.log('yt-dlp path:', state.getYtDlpPath());
       
       // Use spawn to get a proper ChildProcess
       const { spawn } = require('child_process');
-      const downloadProcess = spawn(ytDlpPath, args);
+      const downloadProcess = spawn(state.getYtDlpPath(), args);
       
       // Check if downloadProcess is valid
       if (!downloadProcess || !downloadProcess.stdout) {
@@ -2054,6 +1603,7 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', (event, commandLine) => {
     // Someone tried to run a second instance, we should focus our window
+    const mainWindow = state.getMainWindow();
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
@@ -2075,9 +1625,10 @@ if (!gotTheLock) {
       console.error('Warning: Bundled ffmpeg failed to initialize. Audio processing may be limited.');
     }
     
-    createWindow();
+    createWindow({ createMenu, startAPIServer });
     
     // If a file was opened before the app was ready, open it now
+    const mainWindow = state.getMainWindow();
     if (fileToOpen && mainWindow) {
       mainWindow.once('ready-to-show', () => {
         openFile(fileToOpen);
@@ -2091,6 +1642,7 @@ if (!gotTheLock) {
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
   
+  const mainWindow = state.getMainWindow();
   if (mainWindow && mainWindow.webContents) {
     // Window is ready, open the file immediately
     openFile(filePath);
@@ -2111,6 +1663,7 @@ if (process.platform === 'win32' || process.platform === 'linux') {
 
 // Helper function to open a project file
 function openFile(filePath) {
+  const mainWindow = state.getMainWindow();
   if (!mainWindow) return;
   
   try {
@@ -2173,6 +1726,7 @@ ipcMain.handle('write-midi-config', async (event, config) => {
 });
 
 app.on('window-all-closed', () => {
+  const apiServer = state.getApiServer();
   if (apiServer) {
     apiServer.close();
   }
@@ -2182,7 +1736,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
+  if (state.getMainWindow() === null) {
+    createWindow({ createMenu, startAPIServer });
   }
 });

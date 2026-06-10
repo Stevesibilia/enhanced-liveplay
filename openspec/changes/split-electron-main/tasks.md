@@ -11,9 +11,9 @@
 
 ## 2. PR 2 — state.js + windows.js
 
-- [ ] 2.1 Create `electron/state.js` owning shared refs (`mainWindow`, `playerWindow`, `stateViewerWindow`, `currentProject`, `playerReady`, `visualDisplayEnabled`, ffmpeg path/availability, yt-dlp path/readiness, `apiServer`, `isDevMode`) with getters/setters
-- [ ] 2.2 Create `electron/windows.js` with `createWindow`, `createStateViewerWindow`, `createPlayerWindow`, `closePlayerWindow`, and minimal-mode enter/exit logic; window refs stored via state.js
-- [ ] 2.3 Rewire main.js to use state.js getters/setters everywhere it touched the old globals; verify no state value is captured at require time
+- [x] 2.1 Create `electron/state.js` owning shared refs (`mainWindow`, `playerWindow`, `stateViewerWindow`, `currentProject`, `playerReady`, `visualDisplayEnabled`, ffmpeg path/availability, yt-dlp path/readiness, `apiServer`, `isDevMode`) with getters/setters
+- [x] 2.2 Create `electron/windows.js` with `createWindow`, `createStateViewerWindow`, `createPlayerWindow`, `closePlayerWindow`, and minimal-mode enter/exit logic; window refs stored via state.js
+- [x] 2.3 Rewire main.js to use state.js getters/setters everywhere it touched the old globals; verify no state value is captured at require time
 - [ ] 2.4 Manual smoke: all three windows open/close, player publish handshake works (`player-ready`), minimal mode toggles, second-instance and macOS `open-file` still focus/open correctly
 
 ## 3. PR 3 — media/ modules
