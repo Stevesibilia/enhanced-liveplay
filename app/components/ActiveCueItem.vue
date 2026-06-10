@@ -202,28 +202,28 @@ const formatTime = (seconds: number): string => {
 
 @keyframes flash-yellow {
   0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-state-armed) 40%, transparent);
   }
   50% { 
-    box-shadow: 0 0 8px 4px rgba(255, 193, 7, 0.6);
+    box-shadow: 0 0 8px 4px color-mix(in srgb, var(--color-state-armed) 60%, transparent);
   }
 }
 
 @keyframes flash-orange {
   0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-state-paused) 40%, transparent);
   }
   50% { 
-    box-shadow: 0 0 12px 6px rgba(255, 152, 0, 0.7);
+    box-shadow: 0 0 12px 6px color-mix(in srgb, var(--color-state-paused) 70%, transparent);
   }
 }
 
 @keyframes flash-red {
   0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.5);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-danger) 50%, transparent);
   }
   50% { 
-    box-shadow: 0 0 16px 8px rgba(244, 67, 54, 0.8);
+    box-shadow: 0 0 16px 8px color-mix(in srgb, var(--color-danger) 80%, transparent);
   }
 }
 
@@ -283,7 +283,7 @@ const formatTime = (seconds: number): string => {
   justify-content: center;
   
   &.pause-btn, &.resume-btn {
-    background-color: #ff9800; /* Orange color for pause/resume */
+    background-color: var(--color-state-paused); /* Orange color for pause/resume */
   }
   
   &.stop-btn {

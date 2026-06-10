@@ -67,6 +67,7 @@ const peakHoldStyle = computed(() => ({
 
 // Get color based on dB level
 const getLevelColor = (db: number): string => {
+  // NOTE: these hex literals must stay in sync with the --color-meter-* tokens in app/assets/styles/main.scss
   if (db >= -6) return '#f44336'; // Red
   if (db >= -18) return '#ffc107'; // Yellow
   return '#4caf50'; // Green
@@ -139,17 +140,17 @@ const getLevelColor = (db: number): string => {
   
   &.red {
     height: 10%; // 0 to -6 dB
-    background-color: #f44336;
+    background-color: var(--color-meter-peak);
   }
   
   &.yellow {
     height: 20%; // -6 to -18 dB
-    background-color: #ffc107;
+    background-color: var(--color-meter-high);
   }
   
   &.green {
     height: 70%; // -18 to -60 dB
-    background-color: #4caf50;
+    background-color: var(--color-meter-mid);
   }
 }
 

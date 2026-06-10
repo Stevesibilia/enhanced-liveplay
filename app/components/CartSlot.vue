@@ -772,17 +772,17 @@ const handleDrop = async (e: DragEvent) => {
 
 @keyframes flash-yellow {
   0%, 100% { border-color: var(--color-border); }
-  50% { border-color: #FFC107; }
+  50% { border-color: var(--color-state-armed); }
 }
 
 @keyframes flash-orange {
   0%, 100% { border-color: var(--color-border); }
-  50% { border-color: #FF9800; }
+  50% { border-color: var(--color-state-paused); }
 }
 
 @keyframes flash-red {
   0%, 100% { border-color: var(--color-border); }
-  50% { border-color: #F44336; }
+  50% { border-color: var(--color-danger); }
 }
 
 .empty-slot {

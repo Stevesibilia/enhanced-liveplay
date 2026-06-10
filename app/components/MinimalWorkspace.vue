@@ -174,7 +174,7 @@ const formatTime = (seconds: number): string => {
 }
 
 .mini-btn.stop:hover {
-  color: var(--color-error, #da1e28);
+  color: var(--color-danger);
 }
 
 .mini-btn .material-symbols-rounded {
@@ -263,7 +263,7 @@ const formatTime = (seconds: number): string => {
   flex: 1;
   height: 4px;
   cursor: pointer;
-  accent-color: var(--color-accent, #0f62fe);
+  accent-color: var(--color-accent);
 }
 
 .master-db {

@@ -261,21 +261,21 @@ onMounted(() => {
 }
 
 .silence-warning.warning-yellow {
-  background-color: #fbbf24; /* Yellow */
+  background-color: var(--color-warning); /* Yellow */
 }
 
 .silence-warning.flash-slow {
-  background-color: #fbbf24; /* Yellow with flash */
+  background-color: var(--color-warning); /* Yellow with flash */
   animation: flash-slow 2s ease-in-out infinite;
 }
 
 .silence-warning.flash-medium {
-  background-color: #f56d1f; /* Red */
+  background-color: var(--color-state-paused); /* Red */
   animation: flash-medium 1s ease-in-out infinite;
 }
 
 .silence-warning.flash-fast {
-  background-color: #dc2626; /* Dark red */
+  background-color: var(--color-danger); /* Dark red */
   color: #fff;
   animation: flash-fast 0.5s ease-in-out infinite;
 }

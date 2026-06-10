@@ -80,6 +80,7 @@ const handleMasterVolumeChange = (event: Event) => {
 
 const masterVolumeHandleColor = computed(() => {
   const db = masterGainDb.value;
+  // NOTE: these hex literals must stay in sync with the --color-meter-* tokens in app/assets/styles/main.scss
   if (db <= -60) return '#666';
   if (db < -6) return '#22c55e';
   if (db < -1) return '#eab308';
@@ -245,16 +246,16 @@ const masterVolumeHandleColor = computed(() => {
   width: 20px;
   height: 100%;
   background: linear-gradient(to top,
-    #1a4d2e 0%,
-    #1a4d2e 33%,
-    #22c55e 33%,
-    #22c55e 50%,
-    #16a34a 50%,
-    #16a34a 75%,
-    #eab308 75%,
-    #eab308 93%,
-    #dc2626 93%,
-    #dc2626 100%
+    var(--color-meter-lowest) 0%,
+    var(--color-meter-lowest) 33%,
+    var(--color-meter-low) 33%,
+    var(--color-meter-low) 50%,
+    var(--color-meter-mid) 50%,
+    var(--color-meter-mid) 75%,
+    var(--color-meter-high) 75%,
+    var(--color-meter-high) 93%,
+    var(--color-meter-peak) 93%,
+    var(--color-meter-peak) 100%
   );
   border-radius: 4px;
   background-image:
@@ -270,16 +271,16 @@ const masterVolumeHandleColor = computed(() => {
   width: 20px;
   height: 100%;
   background: linear-gradient(to top,
-    #1a4d2e 0%,
-    #1a4d2e 33%,
-    #22c55e 33%,
-    #22c55e 50%,
-    #16a34a 50%,
-    #16a34a 75%,
-    #eab308 75%,
-    #eab308 93%,
-    #dc2626 93%,
-    #dc2626 100%
+    var(--color-meter-lowest) 0%,
+    var(--color-meter-lowest) 33%,
+    var(--color-meter-low) 33%,
+    var(--color-meter-low) 50%,
+    var(--color-meter-mid) 50%,
+    var(--color-meter-mid) 75%,
+    var(--color-meter-high) 75%,
+    var(--color-meter-high) 93%,
+    var(--color-meter-peak) 93%,
+    var(--color-meter-peak) 100%
   );
   border-radius: 4px;
   background-image:

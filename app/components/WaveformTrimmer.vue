@@ -356,6 +356,7 @@ const volumeDB = computed({
 // Compute handle color based on dB level
 const volumeHandleColor = computed(() => {
   const db = volumeDB.value;
+      // NOTE: these hex literals must stay in sync with the --color-meter-* tokens in app/assets/styles/main.scss
   if (db > 0) return '#991b1b';      // Dark red above 0dB
   if (db > -1) return '#dc2626';     // Red 0 to -1dB
   if (db > -6) return '#eab308';     // Yellow -1 to -6dB
@@ -778,6 +779,7 @@ const drawWaveform = () => {
 
       // Function to get color based on dB level
       const getColorForDB = (db: number): string => {
+      // NOTE: these hex literals must stay in sync with the --color-meter-* tokens in app/assets/styles/main.scss
         if (db > 0) return '#991b1b';        // Dark red above 0 dB
         if (db > -1) return '#dc2626';       // Red 0 to -1 dB
         if (db > -6) return '#eab308';       // Yellow -1 to -6 dB
@@ -1162,18 +1164,18 @@ onUnmounted(() => {
   width: 20px;
   height: 100%;
   background: linear-gradient(to top,
-    #1a4d2e 0%,      /* Darker green under -36db */
-    #1a4d2e 33%,     /* -36db */
-    #22c55e 33%,     /* Dark green -36 to -18 */
-    #22c55e 50%,     /* -18db */
-    #16a34a 50%,     /* Green -18 to -6 */
-    #16a34a 75%,     /* -6db */
-    #eab308 75%,     /* Yellow -6 to -1 */
-    #eab308 93%,     /* -1db */
-    #dc2626 93%,     /* Red -1 to 0 */
-    #dc2626 97%,     /* 0db */
-    #991b1b 97%,     /* Dark red above 0 */
-    #991b1b 100%
+    var(--color-meter-lowest) 0%,      /* Darker green under -36db */
+    var(--color-meter-lowest) 33%,     /* -36db */
+    var(--color-meter-low) 33%,     /* Dark green -36 to -18 */
+    var(--color-meter-low) 50%,     /* -18db */
+    var(--color-meter-mid) 50%,     /* Green -18 to -6 */
+    var(--color-meter-mid) 75%,     /* -6db */
+    var(--color-meter-high) 75%,     /* Yellow -6 to -1 */
+    var(--color-meter-high) 93%,     /* -1db */
+    var(--color-meter-peak) 93%,     /* Red -1 to 0 */
+    var(--color-meter-peak) 97%,     /* 0db */
+    var(--color-meter-clip) 97%,     /* Dark red above 0 */
+    var(--color-meter-clip) 100%
   );
   border-radius: 4px;
   /* Add horizontal lines for dB steps */
@@ -1190,18 +1192,18 @@ onUnmounted(() => {
   width: 20px;
   height: 100%;
   background: linear-gradient(to top,
-    #1a4d2e 0%,
-    #1a4d2e 33%,
-    #22c55e 33%,
-    #22c55e 50%,
-    #16a34a 50%,
-    #16a34a 75%,
-    #eab308 75%,
-    #eab308 93%,
-    #dc2626 93%,
-    #dc2626 97%,
-    #991b1b 97%,
-    #991b1b 100%
+    var(--color-meter-lowest) 0%,
+    var(--color-meter-lowest) 33%,
+    var(--color-meter-low) 33%,
+    var(--color-meter-low) 50%,
+    var(--color-meter-mid) 50%,
+    var(--color-meter-mid) 75%,
+    var(--color-meter-high) 75%,
+    var(--color-meter-high) 93%,
+    var(--color-meter-peak) 93%,
+    var(--color-meter-peak) 97%,
+    var(--color-meter-clip) 97%,
+    var(--color-meter-clip) 100%
   );
   border-radius: 4px;
   background-image: 
@@ -1434,11 +1436,11 @@ onUnmounted(() => {
 }
 
 .trim-handle-in {
-  background: rgba(34, 197, 94, 0.3);
+  background: color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .trim-handle-out {
-  background: rgba(239, 68, 68, 0.3);
+  background: color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .trim-line {
@@ -1450,11 +1452,11 @@ onUnmounted(() => {
 }
 
 .trim-handle-in .trim-line {
-  background: rgb(34, 197, 94);
+  background: var(--color-success);
 }
 
 .trim-handle-out .trim-line {
-  background: rgb(239, 68, 68);
+  background: var(--color-danger);
 }
 
 .trim-grip {
@@ -1475,12 +1477,12 @@ onUnmounted(() => {
 
 .trim-handle-in .trim-grip {
   left: -10px;
-  color: rgb(34, 197, 94);
+  color: var(--color-success);
 }
 
 .trim-handle-out .trim-grip {
   right: -10px;
-  color: rgb(239, 68, 68);
+  color: var(--color-danger);
 }
 
 .trim-grip .material-symbols-rounded {
@@ -1506,11 +1508,11 @@ onUnmounted(() => {
 }
 
 .fade-line-red {
-  background: rgba(220, 38, 38, 0.8);
+  background: color-mix(in srgb, var(--color-danger) 80%, transparent);
 }
 
 .fade-line-yellow {
-  background: rgba(234, 179, 8, 0.8);
+  background: color-mix(in srgb, var(--color-warning) 80%, transparent);
 }
 
 .fade-grip {
@@ -1535,13 +1537,13 @@ onUnmounted(() => {
 }
 
 .fade-grip-red {
-  color: rgb(220, 38, 38);
-  border-color: rgb(220, 38, 38);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 .fade-grip-yellow {
-  color: rgb(234, 179, 8);
-  border-color: rgb(234, 179, 8);
+  color: var(--color-warning);
+  border-color: var(--color-warning);
 }
 
 .fade-handle-play .fade-grip {

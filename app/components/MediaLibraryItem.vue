@@ -107,7 +107,7 @@ watch(() => props.item.mediaPath, loadThumbnail);
   }
 
   &.selected {
-    background-color: rgba(218, 30, 40, 0.15);
+    background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
     outline: 2px solid var(--color-accent);
     border-radius: 4px;
   }
@@ -180,7 +180,7 @@ watch(() => props.item.mediaPath, loadThumbnail);
   }
 
   &.danger:hover {
-    background-color: var(--color-danger, #e53935);
+    background-color: var(--color-danger);
   }
 }
 

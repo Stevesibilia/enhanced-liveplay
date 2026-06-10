@@ -195,7 +195,7 @@ onMounted(() => {
   &:hover { background-color: var(--color-surface-hover); }
 
   &.current {
-    background-color: rgba(218, 30, 40, 0.12);
+    background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
     color: var(--color-accent);
   }
 }

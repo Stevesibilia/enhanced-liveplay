@@ -61,6 +61,21 @@
   --color-danger: #da1e28;
   --color-success: #24a148;
   --color-warning: #f1c21b;
+
+  // Signal colors: state indicators, theme-invariant by design
+  --color-info: #3b82f6;
+  --color-state-armed: #ffc107;
+  --color-state-paused: #ff9800;
+  --color-state-queued: #ffb74d;
+  --color-stop-all: #ff0000;
+  // VU meter zones — must stay in sync with the JS literals that paint
+  // canvases/inline styles: WaveformTrimmer.vue, VUMeter.vue, PlaybackControls.vue
+  --color-meter-lowest: #1a4d2e;
+  --color-meter-low: #22c55e;
+  --color-meter-mid: #16a34a;
+  --color-meter-high: #eab308;
+  --color-meter-peak: #dc2626;
+  --color-meter-clip: #991b1b;
 }
 
 // Dark theme
@@ -77,6 +92,21 @@
   --color-danger: #fa4d56;
   --color-success: #42be65;
   --color-warning: #f1c21b;
+
+  // Signal colors: state indicators, theme-invariant by design
+  --color-info: #3b82f6;
+  --color-state-armed: #ffc107;
+  --color-state-paused: #ff9800;
+  --color-state-queued: #ffb74d;
+  --color-stop-all: #ff0000;
+  // VU meter zones — must stay in sync with the JS literals that paint
+  // canvases/inline styles: WaveformTrimmer.vue, VUMeter.vue, PlaybackControls.vue
+  --color-meter-lowest: #1a4d2e;
+  --color-meter-low: #22c55e;
+  --color-meter-mid: #16a34a;
+  --color-meter-high: #eab308;
+  --color-meter-peak: #dc2626;
+  --color-meter-clip: #991b1b;
 }
 
 // Base styles

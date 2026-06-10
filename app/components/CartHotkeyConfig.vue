@@ -191,11 +191,11 @@ onUnmounted(() => {
 }
 
 .slot-row.capturing {
-  background: var(--color-accent-bg, rgba(59, 130, 246, 0.1));
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
 }
 
 .slot-row.conflict {
-  background: rgba(239, 68, 68, 0.1);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
 .slot-index {
@@ -220,7 +220,7 @@ onUnmounted(() => {
 
 .error-msg {
   font-size: 12px;
-  color: #ef4444;
+  color: var(--color-danger);
   margin-left: auto;
 }
 
@@ -249,7 +249,7 @@ onUnmounted(() => {
 }
 
 .done-btn {
-  background: var(--color-accent, #3b82f6);
+  background: var(--color-accent);
   color: white;
   border-color: transparent;
 }
