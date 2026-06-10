@@ -22,16 +22,16 @@
 - [x] 3.2 Create `electron/media/ytdlp.js` (`initializeYtDlp`, 7-day refresh, backup/restore, `search-youtube` + `download-youtube-audio` handler logic)
 - [x] 3.3 Create `electron/media/waveform.js` (`generate-waveform` handler logic, ffmpeg invocation)
 - [x] 3.4 Move corresponding `ipcMain.handle` registrations with their logic; channel names and payloads unchanged
-- [ ] 3.5 Manual smoke: waveform generates for new import, YouTube search returns results, download lands mp3 in project, ffmpeg fallback message intact when binary missing
+- [x] 3.5 Manual smoke: waveform generates for new import, YouTube search returns results, download lands mp3 in project, ffmpeg fallback message intact when binary missing
 
 ## 4. PR 4 — ipc/ handler modules with register()
 
-- [ ] 4.1 Create `electron/ipc/files.js` — fs/dialog handlers (`select-*`, `read-file`, `read-audio-file`, `write-file`, `copy-file`, `ensure-directory`, `open-folder`, `open-external`, `write-clipboard-text`); guard calls pass `state.getCurrentProject()`
-- [ ] 4.2 Create `electron/ipc/project.js` — `set-current-project`, `export-project`, `import-project`, `import-lpa-file`, `update-app-state`
-- [ ] 4.3 Create `electron/ipc/player.js` — player window controls, `push-to-player`, `player-ready`, fullscreen toggles, visual media import/read/delete, `set-visual-display-enabled`
-- [ ] 4.4 Create `electron/ipc/misc.js` — locale handlers, update handlers, `get-app-version`, `is-dev-mode`, `check-ffmpeg`, minimal mode, MIDI config read/write
-- [ ] 4.5 Each module exports `register()`; requiring without calling registers nothing; main.js calls all `register()` functions in one ordered block
-- [ ] 4.6 Diff channel inventory before/after (grep `ipcMain.` on old vs new tree) — zero channels lost or renamed
+- [x] 4.1 Create `electron/ipc/files.js` — fs/dialog handlers (`select-*`, `read-file`, `read-audio-file`, `write-file`, `copy-file`, `ensure-directory`, `open-folder`, `open-external`, `write-clipboard-text`); guard calls pass `state.getCurrentProject()`
+- [x] 4.2 Create `electron/ipc/project.js` — `set-current-project`, `export-project`, `import-project`, `import-lpa-file`, `update-app-state`
+- [x] 4.3 Create `electron/ipc/player.js` — player window controls, `push-to-player`, `player-ready`, fullscreen toggles, visual media import/read/delete, `set-visual-display-enabled`
+- [x] 4.4 Create `electron/ipc/misc.js` — locale handlers, update handlers, `get-app-version`, `is-dev-mode`, `check-ffmpeg`, minimal mode, MIDI config read/write
+- [x] 4.5 Each module exports `register()`; requiring without calling registers nothing; main.js calls all `register()` functions in one ordered block
+- [x] 4.6 Diff channel inventory before/after (grep `ipcMain.` on old vs new tree) — zero channels lost or renamed
 - [ ] 4.7 Manual smoke: project open/save/export/import, visual media import + publish, locale switch, MIDI config persists
 
 ## 5. PR 5 — Leaf modules + final thin main.js
