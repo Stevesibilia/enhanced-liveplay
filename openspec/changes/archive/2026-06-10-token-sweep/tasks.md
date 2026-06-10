@@ -39,4 +39,4 @@
 
 - [x] 4.1 Re-run the scan: zero non-exempt hex/chromatic-rgba literals in component style blocks
 - [x] 4.2 `npm run test` green (style-only change; suite untouched)
-- [ ] 4.3 Manual eyeball in dev, both themes: playlist states (playing/paused), cart slot flash states, VU meter gradient, modals (MIDI/control config), waveform trimmer, properties panel — nothing illegible or obviously off
+- [x] 4.3 Manual eyeball in dev, both themes: playlist states (playing/paused), cart slot flash states, VU meter gradient, modals (MIDI/control config), waveform trimmer, properties panel — nothing illegible or obviously off
