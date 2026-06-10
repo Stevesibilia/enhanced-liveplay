@@ -7,7 +7,7 @@
 - [x] 1.5 Add `tests/version.test.ts` (greater/lesser/equal, unequal segment counts like `1.6` vs `1.6.0`) and `tests/mime.test.ts` (known extensions + unknown fallback)
 - [x] 1.6 Replace the moved functions in main.js with requires from `electron/lib/`
 - [x] 1.7 Delete stale root files `spike-onend.html` and `visual.md`
-- [ ] 1.8 `npm run test` green; manual smoke: app boots, project opens, read/write/copy file IPC works, update check works
+- [x] 1.8 `npm run test` green; manual smoke: app boots, project opens, read/write/copy file IPC works, update check works
 
 ## 2. PR 2 — state.js + windows.js
 
