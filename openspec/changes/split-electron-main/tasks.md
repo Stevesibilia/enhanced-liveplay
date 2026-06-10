@@ -32,13 +32,13 @@
 - [x] 4.4 Create `electron/ipc/misc.js` — locale handlers, update handlers, `get-app-version`, `is-dev-mode`, `check-ffmpeg`, minimal mode, MIDI config read/write
 - [x] 4.5 Each module exports `register()`; requiring without calling registers nothing; main.js calls all `register()` functions in one ordered block
 - [x] 4.6 Diff channel inventory before/after (grep `ipcMain.` on old vs new tree) — zero channels lost or renamed
-- [ ] 4.7 Manual smoke: project open/save/export/import, visual media import + publish, locale switch, MIDI config persists
+- [x] 4.7 Manual smoke: project open/save/export/import, visual media import + publish, locale switch, MIDI config persists — passed except `.lpa` export, which is a pre-existing bug (identical on published release, not a refactor regression): tracked in issue #57
 
 ## 5. PR 5 — Leaf modules + final thin main.js
 
-- [ ] 5.1 Create `electron/menu.js` (locale file loading, menu translations, `createMenu`)
-- [ ] 5.2 Create `electron/api-server.js` (`startAPIServer` with port retry; window access via state.js at request time, null-window safe)
-- [ ] 5.3 Create `electron/updater.js` (autoUpdater config/feed, `checkForManualUpdate` using `lib/version.js`)
-- [ ] 5.4 Reduce main.js to bootstrap: requires, protocol registration, single-instance lock, `app` lifecycle handlers, ordered init + `register()` calls (~120 lines); confirm no `ipcMain` or `new BrowserWindow` remain in it
-- [ ] 5.5 Verify only main.js subscribes to `app` events; no module-scope mutable globals outside state.js
+- [x] 5.1 Create `electron/menu.js` (locale file loading, menu translations, `createMenu`)
+- [x] 5.2 Create `electron/api-server.js` (`startAPIServer` with port retry; window access via state.js at request time, null-window safe)
+- [x] 5.3 Create `electron/updater.js` (autoUpdater config/feed, `checkForManualUpdate` using `lib/version.js`)
+- [x] 5.4 Reduce main.js to bootstrap: requires, protocol registration, single-instance lock, `app` lifecycle handlers, ordered init + `register()` calls (~120 lines); confirm no `ipcMain` or `new BrowserWindow` remain in it
+- [x] 5.5 Verify only main.js subscribes to `app` events; no module-scope mutable globals outside state.js
 - [ ] 5.6 Full manual smoke checklist (design D5/spec): boot, project open, cue plays, player window publishes, YouTube download, .lpa export/import, menu language switch, minimal mode, HTTP API trigger (`curl localhost:8080/api/trigger/uuid/<uuid>`), update check
