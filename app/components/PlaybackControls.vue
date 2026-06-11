@@ -235,83 +235,45 @@ const masterVolumeHandleColor = computed(() => {
   width: 20px;
   height: 100%;
   cursor: pointer;
-  -webkit-appearance: slider-vertical;
-  appearance: slider-vertical;
+  -webkit-appearance: none;
+  appearance: none;
   background: transparent;
-  border-radius: 4px;
   position: relative;
 }
 
 .master-volume-slider-vertical::-webkit-slider-runnable-track {
-  width: 20px;
+  width: 4px;
   height: 100%;
-  background: linear-gradient(to top,
-    var(--color-meter-lowest) 0%,
-    var(--color-meter-lowest) 33%,
-    var(--color-meter-low) 33%,
-    var(--color-meter-low) 50%,
-    var(--color-meter-mid) 50%,
-    var(--color-meter-mid) 75%,
-    var(--color-meter-high) 75%,
-    var(--color-meter-high) 93%,
-    var(--color-meter-peak) 93%,
-    var(--color-meter-peak) 100%
-  );
-  border-radius: 4px;
-  background-image:
-    repeating-linear-gradient(0deg,
-      rgba(0, 0, 0, 0.3) 0px,
-      rgba(0, 0, 0, 0.3) 1px,
-      transparent 1px,
-      transparent 10%
-    );
+  background: var(--color-border);
+  border-radius: 2px;
 }
 
 .master-volume-slider-vertical::-moz-range-track {
-  width: 20px;
+  width: 4px;
   height: 100%;
-  background: linear-gradient(to top,
-    var(--color-meter-lowest) 0%,
-    var(--color-meter-lowest) 33%,
-    var(--color-meter-low) 33%,
-    var(--color-meter-low) 50%,
-    var(--color-meter-mid) 50%,
-    var(--color-meter-mid) 75%,
-    var(--color-meter-high) 75%,
-    var(--color-meter-high) 93%,
-    var(--color-meter-peak) 93%,
-    var(--color-meter-peak) 100%
-  );
-  border-radius: 4px;
-  background-image:
-    repeating-linear-gradient(0deg,
-      rgba(0, 0, 0, 0.3) 0px,
-      rgba(0, 0, 0, 0.3) 1px,
-      transparent 1px,
-      transparent 10%
-    );
+  background: var(--color-border);
+  border-radius: 2px;
 }
 
 .master-volume-slider-vertical::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 24px;
-  height: 14px;
-  background: var(--volume-handle-color, var(--color-text-primary));
+  width: 18px;
+  height: 10px;
+  margin-left: -7px; /* center the 18px knob on the 4px track */
+  background: var(--volume-handle-color, var(--color-text-secondary));
   cursor: pointer;
+  border: none;
   border-radius: 3px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .master-volume-slider-vertical::-moz-range-thumb {
-  width: 24px;
-  height: 14px;
-  background: var(--volume-handle-color, var(--color-text-primary));
+  width: 18px;
+  height: 10px;
+  background: var(--volume-handle-color, var(--color-text-secondary));
   cursor: pointer;
+  border: none;
   border-radius: 3px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .master-volume-markers {

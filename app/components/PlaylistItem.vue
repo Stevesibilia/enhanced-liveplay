@@ -118,9 +118,9 @@
           >arrow_forward</span>
           <span 
             v-else-if="item.endBehavior?.action === 'loop'" 
-            class="material-symbols-rounded behavior-icon"
+            class="loop-chip"
             :title="`End: Loop`"
-          >replay</span>
+          >loop</span>
         </div>
         
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
@@ -142,6 +142,7 @@
 
 <script setup lang="ts">
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
+import { NEUTRAL_CUE_COLOR } from '~/types/project';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -484,15 +485,16 @@ const itemStyle = computed(() => {
   const styles: any = {
     marginLeft: `${props.depth * 24}px`,
   };
-  
-  if (isPlaying.value || isGroupPlaying.value) {
-    // Playing: 50% opacity background
-    styles.backgroundColor = hexToRgba(props.item.color, 0.5);
-  } else {
-    // Inactive: 25% opacity background
-    styles.backgroundColor = hexToRgba(props.item.color, 0.25);
+
+  // Deliberately colored cues get a small color stripe at the row start;
+  // neutral-default cues stay flat. The playing row's accent stripe (CSS)
+  // takes precedence, so only set the stripe while not playing.
+  const hasCustomColor = props.item.color
+    && props.item.color.toLowerCase() !== NEUTRAL_CUE_COLOR;
+  if (hasCustomColor && !(isPlaying.value || isGroupPlaying.value)) {
+    styles.borderLeftColor = props.item.color;
   }
-  
+
   return styles;
 });
 
@@ -703,6 +705,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 <style scoped>
 .playlist-item {
   border-radius: var(--border-radius-sm);
+  border-left: 3px solid transparent;
   margin-bottom: var(--spacing-xs);
   transition: all var(--transition-fast);
   position: relative;
@@ -711,7 +714,21 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   &.is-selected {
     box-shadow: 0 0 0 2px var(--color-accent);
   }
-  
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+  }
+
+  /* Playing row is the loudest element in the list: accent bar + heavier name */
+  &.is-playing {
+    border-left-color: var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+
+    .item-name {
+      font-weight: var(--font-weight-emphasis);
+    }
+  }
+
   &.warning-yellow {
     animation: flash-yellow 2s ease-in-out infinite;
   }
@@ -787,7 +804,13 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   pointer-events: none;
   z-index: 1;
   color: var(--color-text-primary);
-  opacity: 0.1; /* Control opacity at canvas level instead of individual bars */
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.playlist-item:hover > .item-content .waveform-canvas,
+.playlist-item:hover > .waveform-canvas {
+  opacity: 0.12;
 }
 
 .item-progress {
@@ -835,8 +858,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-index {
-  font-size: 12px;
-  font-size: 1.5em;
+  font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
   min-width: 40px;
 }
@@ -853,8 +875,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-name {
-  font-weight: 700;
-  font-size: 1.5em;
+  font-weight: var(--font-weight-normal);
+  font-size: var(--font-size-list);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -864,8 +886,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-duration {
-  font-size: 12px;
-  font-size: 1.5em;
+  font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
   margin-left: var(--spacing-xs);
   white-space: nowrap;
@@ -881,6 +902,15 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
     font-size: 14px;
     color: var(--color-text-secondary);
     opacity: 0.7;
+  }
+
+  .loop-chip {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    line-height: 1.4;
   }
 }
 

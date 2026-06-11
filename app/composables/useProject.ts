@@ -117,6 +117,10 @@ export const useProject = () => {
       // Save project file
       const projectFilePath = `${folderPath}/${name}.liveplay`;
       if (import.meta.client && window.electronAPI) {
+        // Clear the active project first: the filesystem guard scopes writes
+        // to the current project's folder and would reject creating a new
+        // project elsewhere while one is open.
+        await window.electronAPI.setCurrentProject(null);
         await window.electronAPI.writeFile(
           projectFilePath,
           JSON.stringify(newProject, null, 2)
@@ -136,6 +140,10 @@ export const useProject = () => {
   const openProject = async (projectFilePath: string): Promise<boolean> => {
     try {
       if (import.meta.client && window.electronAPI) {
+        // Clear the active project before reading the new one: the filesystem
+        // guard scopes read-file to the current project's folder and would
+        // reject any project switch. No project = dialog-driven access allowed.
+        await window.electronAPI.setCurrentProject(null);
         const result = await window.electronAPI.readFile(projectFilePath);
         if (result.success) {
           let parsed: any;

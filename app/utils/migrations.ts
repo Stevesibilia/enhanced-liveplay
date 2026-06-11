@@ -1,4 +1,4 @@
-import { DEFAULT_CART_SLOT_KEYS } from '~/types/project';
+import { DEFAULT_CART_SLOT_KEYS, NEUTRAL_CUE_COLOR } from '~/types/project';
 
 // --- Migration functions ---
 // Each migration takes a raw (any-typed) project object and mutates it in place.
@@ -75,14 +75,43 @@ function migrateV1ToV2(project: any): void {
   }
 }
 
+function migrateV2ToV3(project: any): void {
+  // Every pre-theme-selector project carried accentColor '#DA1E28' because it
+  // was the hardcoded default, not a user choice. Clear it so the new named
+  // themes can supply their own accent; a genuinely custom color (anything
+  // else) is preserved.
+  if (project.theme && typeof project.theme.accentColor === 'string'
+      && project.theme.accentColor.toUpperCase() === '#DA1E28') {
+    project.theme.accentColor = '';
+  }
+}
+
+function migrateV3ToV4(project: any): void {
+  // Pre-restyle, every new cue was born pure red (#FF0000, first preset) —
+  // a hardcoded default, not a user choice. Recolor exactly that value to
+  // the neutral default; any other color was deliberately picked and stays.
+  const recolor = (item: any): void => {
+    if (typeof item.color === 'string' && item.color.toUpperCase() === '#FF0000') {
+      item.color = NEUTRAL_CUE_COLOR;
+    }
+    if (item.type === 'group' && item.children) {
+      for (const child of item.children) recolor(child);
+    }
+  };
+  if (project.items) for (const item of project.items) recolor(item);
+  if (project.cartOnlyItems) for (const item of project.cartOnlyItems) recolor(item);
+}
+
 // --- Migration registry ---
 // Index N = migration from version N to N+1
 const migrations: Array<(project: any) => void> = [
   migrateV0ToV1, // 0 → 1
   migrateV1ToV2, // 1 → 2
+  migrateV2ToV3, // 2 → 3
+  migrateV3ToV4, // 3 → 4
 ];
 
-export const CURRENT_SCHEMA_VERSION = migrations.length; // 1
+export const CURRENT_SCHEMA_VERSION = migrations.length;
 
 // --- Validation ---
 

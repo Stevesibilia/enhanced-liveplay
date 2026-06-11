@@ -107,9 +107,9 @@
             >arrow_forward</span>
             <span 
               v-else-if="item.endBehavior?.action === 'loop'" 
-              class="material-symbols-rounded behavior-icon"
+              class="loop-chip"
               :title="`End: Loop`"
-            >replay</span>
+            >loop</span>
           </div>
           
           <!-- Duration -->
@@ -730,8 +730,8 @@ const handleDrop = async (e: DragEvent) => {
 
 <style scoped lang="scss">
 .cart-slot {
-  border: 3px solid var(--color-border);
-  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
   background-color: var(--color-surface);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -795,17 +795,22 @@ const handleDrop = async (e: DragEvent) => {
   gap: var(--spacing-sm);
   
   .slot-number {
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--color-text-primary);
+    font-size: var(--font-size-meta);
+    font-weight: var(--font-weight-emphasis);
+    color: var(--color-text-secondary);
   }
   
   .slot-hint {
-    font-size: 12px;
-    font-style: italic;
+    font-size: 11px;
     color: var(--color-text-secondary);
     padding-left: 4px;
     text-align: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  &:hover .slot-hint {
+    opacity: 1;
   }
 
   .key-label {
@@ -844,16 +849,16 @@ const handleDrop = async (e: DragEvent) => {
   z-index: 2;
   
   .slot-number {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--font-size-meta);
+    font-weight: var(--font-weight-emphasis);
     color: var(--color-text-secondary);
-    min-width: 24px;
+    min-width: 18px;
     flex-shrink: 0;
   }
   
   .slot-name {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--font-size-meta);
+    font-weight: 500;
     color: var(--color-text-primary);
     overflow: hidden;
     display: -webkit-box;
@@ -988,6 +993,15 @@ const handleDrop = async (e: DragEvent) => {
     color: var(--color-text-secondary);
     opacity: 0.7;
   }
+
+  .loop-chip {
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0 5px;
+    line-height: 1.4;
+  }
 }
 
 .slot-duration {
@@ -1019,9 +1033,14 @@ const handleDrop = async (e: DragEvent) => {
   left: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.3;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
   pointer-events: none;
   z-index: 0;
+}
+
+.slot-content:hover .cart-waveform-canvas {
+  opacity: 0.25;
 }
 
 .cart-progress {

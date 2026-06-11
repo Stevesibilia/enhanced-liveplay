@@ -176,9 +176,27 @@ export interface Project {
 }
 
 // Theme configuration
+export type ThemeMode = 'light' | 'dark' | 'calm-slate' | 'cobalt';
+
 export interface Theme {
-  mode: 'light' | 'dark';
+  mode: ThemeMode;
   accentColor: string;
+}
+
+// Selectable themes, in menu order. Each maps to a [data-theme='<id>']
+// token block in main.scss. labels are proper nouns, not translated.
+export const THEME_LIST: ReadonlyArray<{ id: ThemeMode; label: string; family: 'light' | 'dark' }> = [
+  { id: 'cobalt', label: 'Cobalt', family: 'dark' },
+  { id: 'calm-slate', label: 'Calm Slate', family: 'dark' },
+  { id: 'dark', label: 'Classic Dark', family: 'dark' },
+  { id: 'light', label: 'Classic Light', family: 'light' },
+];
+
+// Whether a theme belongs to the dark family (drives logo variants etc.).
+// Unknown ids fall back to dark, the app's dominant family.
+export function isDarkTheme(mode: string): boolean {
+  const entry = THEME_LIST.find(t => t.id === mode);
+  return entry ? entry.family === 'dark' : true;
 }
 
 // Active playback state
@@ -218,13 +236,17 @@ export const PRESET_COLORS = [
 
 // Default values
 export const DEFAULT_THEME: Theme = {
-  mode: 'dark',
-  accentColor: '#DA1E28'
+  mode: 'cobalt',
+  accentColor: ''
 };
 
 // Shared base defaults for all audio items
+// Default cue color: neutral slate — rows stay calm until the user assigns
+// a color deliberately (PRESET_COLORS in the picker).
+export const NEUTRAL_CUE_COLOR = '#6b7280';
+
 const BASE_AUDIO_DEFAULTS = {
-  color: PRESET_COLORS[0],
+  color: NEUTRAL_CUE_COLOR,
   inPoint: 0,
   volume: 1.0,
   startBehavior: { action: 'nothing' } as const,

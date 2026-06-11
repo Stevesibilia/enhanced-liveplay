@@ -105,8 +105,17 @@ watch(theme, (mode) => {
 watch(currentProject, (project) => {
   if (project) {
     theme.value = project.theme.mode;
-    if (import.meta.client && project.theme.accentColor) {
-      document.documentElement.style.setProperty('--color-accent-custom', project.theme.accentColor);
+    if (import.meta.client && window.electronAPI) {
+      // Mirror to main so the View > Theme radio matches the loaded project
+      window.electronAPI.setCurrentTheme(project.theme.mode);
+    }
+    if (import.meta.client) {
+      if (project.theme.accentColor) {
+        document.documentElement.style.setProperty('--color-accent-custom', project.theme.accentColor);
+      } else {
+        // No custom accent — let the active theme's own accent show through
+        document.documentElement.style.removeProperty('--color-accent-custom');
+      }
     }
   }
 }, { immediate: true });

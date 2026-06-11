@@ -16,7 +16,7 @@ declare global {
       ensureDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
       generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;
       openFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
-      setCurrentProject: (projectPath: string) => Promise<{ success: boolean }>;
+      setCurrentProject: (projectPath: string | null) => Promise<{ success: boolean }>;
       exportProject: (projectFolderPath: string, projectName?: string) => Promise<{ success: boolean; path?: string; size?: number; canceled?: boolean; error?: string }>;
       importProject: () => Promise<{ 
         success: boolean; 
@@ -62,13 +62,14 @@ declare global {
       onMenuImportProject: (callback: () => void) => void;
       onMenuCloseProject: (callback: () => void) => void;
       onMenuOpenProjectFolder: (callback: () => void) => void;
-      onMenuToggleDarkMode: (callback: () => void) => void;
+      onMenuSetTheme: (callback: (event: IpcEvent, themeId: string) => void) => void;
       onMenuChangeAccentColor: (callback: () => void) => void;
       onMenuChangeLanguage: (callback: (event: IpcEvent, locale: string) => void) => void;
       onMenuShowAbout: (callback: () => void) => void;
       onMenuToggleMinimalMode: (callback: () => void) => void;
       onMenuToggleVisualDisplay: (callback: () => void) => void;
       setVisualDisplayEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+      setCurrentTheme: (themeId: string) => Promise<{ success: boolean }>;
       enterMinimalMode: () => Promise<void>;
       exitMinimalMode: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;

@@ -32,6 +32,8 @@
 </template>
 
 <script setup lang="ts">
+import { isDarkTheme } from '~/types/project';
+
 const { createNewProject, openProject } = useProject();
 const { t } = useLocalization();
 
@@ -44,8 +46,8 @@ onMounted(async () => {
 });
 
 // Get theme from app state (works even when no project is open)
-const theme = useState('theme', () => 'dark');
-const isDark = computed(() => theme.value === 'dark');
+const theme = useState('theme', () => 'cobalt');
+const isDark = computed(() => isDarkTheme(theme.value));
 
 const handleNewProject = async () => {
   if (!import.meta.client || !window.electronAPI) return;

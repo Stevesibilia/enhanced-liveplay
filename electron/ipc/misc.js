@@ -94,6 +94,13 @@ function register(deps) {
   });
 
   // Check if dev mode is enabled
+  ipcMain.handle('set-current-theme', async (event, themeId) => {
+    state.setCurrentTheme(themeId);
+    // Rebuild so the View > Theme radio reflects the renderer's state
+    deps.rebuildMenu();
+    return { success: true };
+  });
+
   ipcMain.handle('is-dev-mode', () => {
     return state.isDevMode;
   });

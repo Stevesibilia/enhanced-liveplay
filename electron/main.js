@@ -35,6 +35,7 @@ projectIpc.register({ rebuildMenu: menu.rebuildMenu });
 playerIpc.register({ rebuildMenu: menu.rebuildMenu });
 miscIpc.register({
   createMenu: menu.createMenu,
+  rebuildMenu: menu.rebuildMenu,
   checkForManualUpdate: updater.checkForManualUpdate,
   getLocaleFiles: menu.getLocaleFiles,
 });

@@ -12,6 +12,7 @@ const state = {
   stateViewerWindow: null, // Debug state viewer window
   playerWindow: null, // Player display window (second monitor)
   currentProject: null,
+  currentTheme: 'cobalt', // Mirrored from renderer; drives the View > Theme menu radios
   playerReady: false, // True once the player renderer has signalled it is listening
   visualDisplayEnabled: true, // Per-project flag mirrored from renderer; gates player window menu item
   lastDisplayState: null, // Newest display state; buffered for flush + reopen
@@ -39,6 +40,9 @@ module.exports = {
 
   getCurrentProject: () => state.currentProject,
   setCurrentProject: (projectPath) => { state.currentProject = projectPath; },
+
+  getCurrentTheme: () => state.currentTheme,
+  setCurrentTheme: (themeId) => { state.currentTheme = themeId; },
 
   getPlayerReady: () => state.playerReady,
   setPlayerReady: (ready) => { state.playerReady = ready; },
