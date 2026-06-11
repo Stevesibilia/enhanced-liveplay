@@ -56,7 +56,7 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
     openProjectFolder: data.menu.openProjectFolder,
     exit: data.menu.exit,
     view: data.menu.view,
-    toggleDarkMode: data.menu.toggleDarkMode,
+    theme: data.menu.theme || 'Theme',
     changeAccentColor: data.menu.changeAccentColor,
     fullscreen: data.menu.fullscreen,
     language: data.menu.language,
@@ -65,6 +65,15 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
   };
   return acc;
 }, {});
+
+// Selectable themes — ids and order must match THEME_LIST in app/types/project.ts.
+// Labels are proper nouns, not translated.
+const THEMES = [
+  { id: 'cobalt', label: 'Cobalt' },
+  { id: 'calm-slate', label: 'Calm Slate' },
+  { id: 'dark', label: 'Classic Dark' },
+  { id: 'light', label: 'Classic Light' },
+];
 
 let currentLocale = 'en';
 
@@ -140,10 +149,15 @@ function createMenu(locale = 'en', isDev = false) {
       label: t.view,
       submenu: [
         {
-          label: t.toggleDarkMode,
-          click: () => {
-            state.getMainWindow().webContents.send('menu-toggle-dark-mode');
-          }
+          label: t.theme,
+          submenu: THEMES.map((theme) => ({
+            label: theme.label,
+            type: 'radio',
+            checked: state.getCurrentTheme() === theme.id,
+            click: () => {
+              state.getMainWindow().webContents.send('menu-set-theme', theme.id);
+            }
+          }))
         },
         {
           label: t.changeAccentColor,

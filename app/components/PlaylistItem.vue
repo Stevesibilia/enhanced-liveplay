@@ -711,7 +711,17 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   &.is-selected {
     box-shadow: 0 0 0 2px var(--color-accent);
   }
-  
+
+  // Playing row is the loudest element in the list: accent bar + heavier name
+  &.is-playing {
+    border-left: 3px solid var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+
+    .item-name {
+      font-weight: var(--font-weight-emphasis);
+    }
+  }
+
   &.warning-yellow {
     animation: flash-yellow 2s ease-in-out infinite;
   }
@@ -835,8 +845,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-index {
-  font-size: 12px;
-  font-size: 1.5em;
+  font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
   min-width: 40px;
 }
@@ -853,8 +862,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-name {
-  font-weight: 700;
-  font-size: 1.5em;
+  font-weight: var(--font-weight-normal);
+  font-size: var(--font-size-list);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -864,8 +873,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .item-duration {
-  font-size: 12px;
-  font-size: 1.5em;
+  font-size: var(--font-size-meta);
   color: var(--color-text-secondary);
   margin-left: var(--spacing-xs);
   white-space: nowrap;

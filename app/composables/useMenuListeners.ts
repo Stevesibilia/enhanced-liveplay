@@ -1,5 +1,6 @@
 import { watch } from 'vue';
-import type { Project } from '~/types/project';
+import type { Project, ThemeMode } from '~/types/project';
+import { THEME_LIST } from '~/types/project';
 
 /**
  * Registers IPC listeners for application menu actions (theme toggle,
@@ -8,7 +9,7 @@ import type { Project } from '~/types/project';
 export const useMenuListeners = () => {
   const { currentProject, saveProject, openProject, visualDisplayEnabled, setVisualDisplayEnabled } = useProject();
   const { setLocale, currentLocale } = useLocalization();
-  const theme = useState('theme', () => 'dark');
+  const theme = useState('theme', () => 'cobalt');
 
   const showColorPicker = ref(false);
   const showAboutModal = ref(false);
@@ -27,12 +28,15 @@ export const useMenuListeners = () => {
   const registerListeners = () => {
     if (!import.meta.client || !window.electronAPI) return;
 
-    window.electronAPI.onMenuToggleDarkMode(() => {
-      theme.value = theme.value === 'dark' ? 'light' : 'dark';
+    window.electronAPI.onMenuSetTheme((_event, themeId) => {
+      if (!THEME_LIST.some(t => t.id === themeId)) return;
+      theme.value = themeId;
       if (currentProject.value) {
-        currentProject.value.theme.mode = theme.value as 'dark' | 'light';
+        currentProject.value.theme.mode = themeId as ThemeMode;
         saveProject();
       }
+      // Mirror to main so the menu radio survives rebuilds
+      window.electronAPI.setCurrentTheme(themeId);
     });
 
     window.electronAPI.onMenuChangeAccentColor(() => {

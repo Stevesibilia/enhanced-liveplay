@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>E-LivePlay restyle — 3 — Paper Light</title>
+<style>
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url(../../app/assets/fonts/IBM_Plex_Sans/IBMPlexSans-Variable.ttf) format('truetype');
+  font-weight: 100 900;
+}
+:root {
+  --color-background: #f4f1ea;
+  --color-surface: #fbf9f4;
+  --color-surface-hover: #ffffff;
+  --color-border: #d8d2c4;
+  --color-text-primary: #26231e;
+  --color-text-secondary: #6b655a;
+  --color-accent: #2a7f7f;
+  --color-danger: #b3261e;
+  --color-state-paused: #ff9800;
+  --color-meter-lowest: #1a4d2e;
+  --color-meter-low: #22c55e;
+  --color-meter-mid: #16a34a;
+  --color-meter-high: #eab308;
+  --color-meter-peak: #dc2626;
+  --font-size-list: 15px;
+  --font-size-meta: 12px;
+  --font-size-clock: 18px;
+  --font-weight-normal: 450;
+  --font-weight-emphasis: 600;
+  --border-radius-md: 4px;
+  --border-radius-lg: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  width: 1600px; height: 1000px; overflow: hidden;
+  display: flex; flex-direction: column;
+  font-size: 14px;
+}
+.badge {
+  position: fixed; right: 14px; bottom: 12px; z-index: 99;
+  font-size: 12px; color: var(--color-text-secondary);
+  border: 1px solid var(--color-border); border-radius: 4px;
+  padding: 4px 10px; background: var(--color-surface);
+}
+
+/* ── header ── */
+.header {
+  height: 56px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--color-accent); opacity: .9;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-background); font-weight: 700; font-size: 14px;
+}
+.project-name { font-size: 16px; font-weight: 600;  }
+.clock {
+  font-size: var(--font-size-clock); font-weight: 400;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums; letter-spacing: .04em;
+}
+
+/* ── playback bar ── */
+.playback {
+  height: 110px; display: flex; align-items: stretch; gap: 16px;
+  padding: 12px 20px; background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.panic {
+  align-self: center; padding: 12px 18px; border-radius: var(--border-radius-md);
+  background: var(--color-danger); color: #fff; font-weight: 600; font-size: 13px;
+  border: none; letter-spacing: .03em;
+}
+.active-cues { flex: 1; display: flex; gap: 10px; align-items: center; }
+.cue-chip {
+  width: 240px; padding: 10px 12px; border-radius: var(--border-radius-md);
+  background: var(--color-background); border: 1px solid var(--color-border);
+}
+.cue-chip .t { font-size: 13px; font-weight: var(--font-weight-emphasis); margin-bottom: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cue-chip .bar { height: 4px; border-radius: 2px; background: var(--color-border); position: relative; }
+.cue-chip .bar i { position: absolute; inset: 0 38% 0 0; background: var(--color-accent); border-radius: 2px; }
+.cue-chip.paused .bar i { background: var(--color-state-paused); inset: 0 71% 0 0; }
+.cue-chip .time { font-size: 11px; color: var(--color-text-secondary); margin-top: 5px;
+  font-variant-numeric: tabular-nums; display:flex; justify-content: space-between; }
+.master { display: flex; gap: 14px; align-items: stretch; }
+.meter { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.meter .lbl { font-size: 10px; color: var(--color-text-secondary); letter-spacing: .08em; }
+.meter .col {
+  width: 14px; flex: 1; border-radius: 3px;
+  background: linear-gradient(to top,
+    var(--color-meter-lowest) 0%, var(--color-meter-lowest) 33%,
+    var(--color-meter-low) 33%, var(--color-meter-low) 50%,
+    var(--color-meter-mid) 50%, var(--color-meter-mid) 75%,
+    var(--color-meter-high) 75%, var(--color-meter-high) 93%,
+    var(--color-meter-peak) 93%, var(--color-meter-peak) 100%);
+  position: relative;
+}
+.meter .col::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 36%;
+  background: var(--color-surface); opacity: .82; border-radius: 3px 3px 0 0;
+}
+.fader { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fader .track { width: 4px; flex: 1; background: var(--color-border); border-radius: 2px; position: relative; }
+.fader .knob {
+  position: absolute; top: 24%; left: 50%; transform: translateX(-50%);
+  width: 18px; height: 10px; border-radius: 3px; background: var(--color-text-secondary);
+}
+.fader .db { font-size: 10px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+
+/* ── tabs ── */
+.tabs { display: flex; gap: 4px; padding: 8px 20px 0; border-bottom: 1px solid var(--color-border); }
+.tab {
+  padding: 8px 18px; font-size: 13px; color: var(--color-text-secondary);
+  border: 1px solid transparent; border-bottom: none;
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+}
+.tab.active {
+  color: var(--color-text-primary); background: var(--color-surface);
+  border-color: var(--color-border); font-weight: 600;
+  box-shadow: 0 1px 0 var(--color-surface);
+}
+
+/* ── content ── */
+.content { flex: 1; display: flex; min-height: 0; }
+.playlist { flex: 1; padding: 14px 8px 14px 20px; overflow: hidden; }
+.panel-title {
+  font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--color-text-secondary); margin: 2px 0 10px 4px; 
+}
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--border-radius-md);
+  border-left: 3px solid transparent; margin-bottom: 2px;
+}
+.row:hover { background: var(--color-surface-hover); }
+.row .idx { font-size: var(--font-size-meta); color: var(--color-text-secondary);
+  min-width: 26px; font-variant-numeric: tabular-nums; }
+.row .ic { width: 18px; text-align: center; color: var(--color-text-secondary); font-size: 14px; }
+.row .nm { flex: 1; font-size: var(--font-size-list); font-weight: var(--font-weight-normal);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .dur { font-size: var(--font-size-meta); color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums; }
+.row .loop { font-size: 11px; color: var(--color-text-secondary); border: 1px solid var(--color-border);
+  border-radius: 3px; padding: 1px 6px; }
+.row.group {
+  font-weight: 600; color: var(--color-text-secondary); background: var(--color-surface);
+  margin-top: 10px; font-size: 13px; letter-spacing: .02em; 
+}
+.row.playing {
+  border-left-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+}
+.row.playing .nm { font-weight: var(--font-weight-emphasis); }
+.row.playing .ic, .row.playing .dur { color: var(--color-accent); }
+.row.paused {
+  border-left-color: var(--color-state-paused);
+  background: color-mix(in srgb, var(--color-state-paused) 8%, transparent);
+}
+.row.paused .ic { color: var(--color-state-paused); }
+
+/* ── cart ── */
+.cart {
+  width: 430px; border-left: 1px solid var(--color-border);
+  padding: 14px 20px; display: flex; flex-direction: column;
+}
+.cart-grid { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr); gap: 8px; }
+.slot {
+  border: 1px solid var(--color-border); border-radius: var(--border-radius-lg);
+  background: var(--color-surface); padding: 8px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-size: 12px;
+}
+.slot .k { font-size: 10px; color: var(--color-text-secondary); }
+.slot .n { font-weight: 500; line-height: 1.25; }
+.slot.empty { background: transparent; border-style: dashed; }
+.slot.live {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+.slot.live .n { color: var(--color-accent); font-weight: 600; }
+
+.header, .playback { box-shadow: 0 1px 3px rgba(60,50,30,.06); }
+.slot { box-shadow: 0 1px 2px rgba(60,50,30,.05); }
+.meter .col::after { opacity: .9; }
+
+</style>
+</head>
+<body>
+  <div class="badge">Direction 3 · Paper Light</div>
+  <header class="header">
+    <div class="header-left"><div class="logo">▶</div><h2 class="project-name">The Sunken Citadel — Session 12</h2></div>
+    <div class="clock">21:47:03</div>
+  </header>
+
+  <section class="playback">
+    <button class="panic">■ STOP ALL</button>
+    <div class="active-cues">
+      <div class="cue-chip">
+        <div class="t">Tavern ambience — crackling hearth</div>
+        <div class="bar"><i></i></div>
+        <div class="time"><span>7:43</span><span>-4:49</span></div>
+      </div>
+      <div class="cue-chip paused">
+        <div class="t">Crypt drone</div>
+        <div class="bar"><i></i></div>
+        <div class="time"><span>6:24</span><span>⏸ paused</span></div>
+      </div>
+    </div>
+    <div class="master">
+      <div class="meter"><div class="lbl">MIX</div><div class="col"></div></div>
+      <div class="fader"><div class="lbl" style="font-size:10px;color:var(--color-text-secondary);letter-spacing:.08em">OUT</div><div class="track"><div class="knob"></div></div><div class="db">-3.0 dB</div></div>
+    </div>
+  </section>
+
+  <nav class="tabs"><div class="tab active">♪ Audio</div><div class="tab">▦ Media</div></nav>
+
+  <main class="content">
+    <section class="playlist">
+      <div class="panel-title">Playlist</div>
+      <div class="row group"><span class="idx">▾</span><span class="nm">Act I — Arrival at the Citadel</span></div>
+      <div class="row playing"><span class="idx">0</span><span class="ic">▶</span><span class="nm">Tavern ambience — crackling hearth</span><span class="loop">loop</span><span class="dur">12:32</span></div>
+      <div class="row"><span class="idx">1</span><span class="ic">♪</span><span class="nm">Rain on cobblestones</span><span class="loop">loop</span><span class="dur">45:00</span></div>
+      <div class="row"><span class="idx">2</span><span class="ic">♪</span><span class="nm">Mysterious stranger — sting</span><span class="dur">0:08</span></div>
+      <div class="row group"><span class="idx">▾</span><span class="nm">Act II — Into the Crypt</span></div>
+      <div class="row paused"><span class="idx">3</span><span class="ic">⏸</span><span class="nm">Crypt drone</span><span class="loop">loop</span><span class="dur">22:10</span></div>
+      <div class="row"><span class="idx">4</span><span class="ic">♪</span><span class="nm">Skeletons rise — combat</span><span class="dur">3:24</span></div>
+      <div class="row"><span class="idx">5</span><span class="ic">♪</span><span class="nm">Boss — The Bone Tyrant</span><span class="dur">4:51</span></div>
+      <div class="row"><span class="idx">6</span><span class="ic">♪</span><span class="nm">Victory fanfare</span><span class="dur">0:21</span></div>
+      <div class="row group"><span class="idx">▸</span><span class="nm">Act III — The Drowned God (collapsed)</span></div>
+    </section>
+    <aside class="cart">
+      <div class="panel-title">Cart</div>
+      <div class="cart-grid">
+        <div class="slot live"><span class="k">1</span><span class="n">Door creak</span></div>
+        <div class="slot"><span class="k">2</span><span class="n">Thunder crack</span></div>
+        <div class="slot"><span class="k">3</span><span class="n">Sword clash</span></div>
+        <div class="slot"><span class="k">4</span><span class="n">Dragon roar</span></div>
+        <div class="slot"><span class="k">5</span><span class="n">Tavern brawl</span></div>
+        <div class="slot"><span class="k">6</span><span class="n">Ghost whisper</span></div>
+        <div class="slot"><span class="k">7</span><span class="n">Coins falling</span></div>
+        <div class="slot"><span class="k">8</span><span class="n">Heavy gate</span></div>
+        <div class="slot"><span class="k">9</span><span class="n">Bones rattle</span></div>
+        <div class="slot"><span class="k">10</span><span class="n">Water drip</span></div>
+        <div class="slot empty"><span class="k">11</span></div>
+        <div class="slot empty"><span class="k">12</span></div>
+        <div class="slot empty"><span class="k">13</span></div>
+        <div class="slot empty"><span class="k">14</span></div>
+        <div class="slot empty"><span class="k">15</span></div>
+        <div class="slot empty"><span class="k">16</span></div>
+      </div>
+    </aside>
+  </main>
+</body>
+</html>

@@ -75,14 +75,26 @@ function migrateV1ToV2(project: any): void {
   }
 }
 
+function migrateV2ToV3(project: any): void {
+  // Every pre-theme-selector project carried accentColor '#DA1E28' because it
+  // was the hardcoded default, not a user choice. Clear it so the new named
+  // themes can supply their own accent; a genuinely custom color (anything
+  // else) is preserved.
+  if (project.theme && typeof project.theme.accentColor === 'string'
+      && project.theme.accentColor.toUpperCase() === '#DA1E28') {
+    project.theme.accentColor = '';
+  }
+}
+
 // --- Migration registry ---
 // Index N = migration from version N to N+1
 const migrations: Array<(project: any) => void> = [
   migrateV0ToV1, // 0 → 1
   migrateV1ToV2, // 1 → 2
+  migrateV2ToV3, // 2 → 3
 ];
 
-export const CURRENT_SCHEMA_VERSION = migrations.length; // 1
+export const CURRENT_SCHEMA_VERSION = migrations.length;
 
 // --- Validation ---
 

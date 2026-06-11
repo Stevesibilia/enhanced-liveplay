@@ -45,6 +45,13 @@
   --playback-controls-height: 120px;
   --properties-panel-height: 300px;
   --cart-player-width: 33.333%;
+
+  // Typography
+  --font-size-list: 15px;
+  --font-size-meta: 12px;
+  --font-size-clock: 18px;
+  --font-weight-normal: 450;
+  --font-weight-emphasis: 600;
 }
 
 // Light theme
@@ -89,6 +96,68 @@
   --color-text-disabled: #6f6f6f;
   --color-accent: var(--color-accent-custom, #da1e28);
   --color-accent-hover: var(--color-accent-hover-custom, #da1e28);
+  --color-danger: #fa4d56;
+  --color-success: #42be65;
+  --color-warning: #f1c21b;
+
+  // Signal colors: state indicators, theme-invariant by design
+  --color-info: #3b82f6;
+  --color-state-armed: #ffc107;
+  --color-state-paused: #ff9800;
+  --color-state-queued: #ffb74d;
+  --color-stop-all: #ff0000;
+  // VU meter zones — must stay in sync with the JS literals that paint
+  // canvases/inline styles: WaveformTrimmer.vue, VUMeter.vue, PlaybackControls.vue
+  --color-meter-lowest: #1a4d2e;
+  --color-meter-low: #22c55e;
+  --color-meter-mid: #16a34a;
+  --color-meter-high: #eab308;
+  --color-meter-peak: #dc2626;
+  --color-meter-clip: #991b1b;
+}
+
+// Calm Slate theme — cool dark gray, teal accent (restyle 2026)
+[data-theme='calm-slate'] {
+  --color-background: #1a1d21;
+  --color-surface: #23272d;
+  --color-surface-hover: #2c313a;
+  --color-border: #3a404a;
+  --color-text-primary: #e8eaed;
+  --color-text-secondary: #9aa3af;
+  --color-text-disabled: #6a7280;
+  --color-accent: var(--color-accent-custom, #4fb3bf);
+  --color-accent-hover: var(--color-accent-hover-custom, #65c5d1);
+  --color-danger: #e35d6a;
+  --color-success: #42be65;
+  --color-warning: #f1c21b;
+
+  // Signal colors: state indicators, theme-invariant by design
+  --color-info: #3b82f6;
+  --color-state-armed: #ffc107;
+  --color-state-paused: #ff9800;
+  --color-state-queued: #ffb74d;
+  --color-stop-all: #ff0000;
+  // VU meter zones — must stay in sync with the JS literals that paint
+  // canvases/inline styles: WaveformTrimmer.vue, VUMeter.vue, PlaybackControls.vue
+  --color-meter-lowest: #1a4d2e;
+  --color-meter-low: #22c55e;
+  --color-meter-mid: #16a34a;
+  --color-meter-high: #eab308;
+  --color-meter-peak: #dc2626;
+  --color-meter-clip: #991b1b;
+}
+
+// Cobalt theme — classic dark surfaces, cobalt accent (restyle 2026, default)
+[data-theme='cobalt'] {
+  --color-background: #161616;
+  --color-surface: #262626;
+  --color-surface-hover: #333333;
+  --color-border: #525252;
+  --color-text-primary: #f4f4f4;
+  --color-text-secondary: #c6c6c6;
+  --color-text-disabled: #6f6f6f;
+  --color-accent: var(--color-accent-custom, #4589ff);
+  --color-accent-hover: var(--color-accent-hover-custom, #6ea1ff);
   --color-danger: #fa4d56;
   --color-success: #42be65;
   --color-warning: #f1c21b;

@@ -62,6 +62,7 @@
 </template>
 
 <script setup lang="ts">
+import { isDarkTheme } from '~/types/project';
 const emit = defineEmits<{
   close: []
 }>();
@@ -77,8 +78,8 @@ onMounted(async () => {
 });
 
 // Get theme from app state
-const theme = useState('theme', () => 'dark');
-const isDark = computed(() => theme.value === 'dark');
+const theme = useState('theme', () => 'cobalt');
+const isDark = computed(() => isDarkTheme(theme.value));
 
 const close = () => {
   emit('close');

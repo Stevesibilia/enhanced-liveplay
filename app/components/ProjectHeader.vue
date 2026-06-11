@@ -24,11 +24,13 @@
 </template>
 
 <script setup lang="ts">
+import { isDarkTheme } from '~/types/project';
+
 const { currentProject, findItemByUuid, findItemByIndex } = useProject();
 const { t } = useLocalization();
 const { activeCues } = useAudioEngine();
 
-const isDark = computed(() => currentProject.value?.theme.mode === 'dark');
+const isDark = computed(() => isDarkTheme(currentProject.value?.theme.mode ?? 'cobalt'));
 const currentTime = ref('00:00:00');
 
 // Silence warning system
@@ -235,16 +237,11 @@ onMounted(() => {
 }
 
 .digital-clock {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-accent);
-  letter-spacing: 0.05em;
-  padding: var(--spacing-xs) var(--spacing-md);
-  border: 2px solid var(--color-accent);
-  border-radius: var(--border-radius-md);
-  background-color: var(--color-surface);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  transition: all var(--transition-base);
+  font-size: var(--font-size-clock);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .silence-warning {

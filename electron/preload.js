@@ -86,13 +86,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuImportProject: (callback) => ipcRenderer.on('menu-import-project', callback),
   onMenuCloseProject: (callback) => ipcRenderer.on('menu-close-project', callback),
   onMenuOpenProjectFolder: (callback) => ipcRenderer.on('menu-open-project-folder', callback),
-  onMenuToggleDarkMode: (callback) => ipcRenderer.on('menu-toggle-dark-mode', callback),
+  onMenuSetTheme: (callback) => ipcRenderer.on('menu-set-theme', callback),
   onMenuChangeAccentColor: (callback) => ipcRenderer.on('menu-change-accent-color', callback),
   onMenuChangeLanguage: (callback) => ipcRenderer.on('menu-change-language', callback),
   onMenuShowAbout: (callback) => ipcRenderer.on('menu-show-about', callback),
   onMenuToggleMinimalMode: (callback) => ipcRenderer.on('menu-toggle-minimal-mode', callback),
   onMenuToggleVisualDisplay: (callback) => ipcRenderer.on('menu-toggle-visual-display', callback),
   setVisualDisplayEnabled: (enabled) => ipcRenderer.invoke('set-visual-display-enabled', enabled),
+  setCurrentTheme: (themeId) => ipcRenderer.invoke('set-current-theme', themeId),
 
   // Minimal mode
   enterMinimalMode: () => ipcRenderer.invoke('enter-minimal-mode'),
