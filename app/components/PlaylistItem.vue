@@ -118,9 +118,9 @@
           >arrow_forward</span>
           <span 
             v-else-if="item.endBehavior?.action === 'loop'" 
-            class="material-symbols-rounded behavior-icon"
+            class="loop-chip"
             :title="`End: Loop`"
-          >replay</span>
+          >loop</span>
         </div>
         
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
@@ -486,14 +486,13 @@ const itemStyle = computed(() => {
     marginLeft: `${props.depth * 24}px`,
   };
 
-  // Only deliberately colored cues get a tinted row; neutral-default cues
-  // stay flat (hover and is-playing styling come from CSS).
+  // Deliberately colored cues get a small color stripe at the row start;
+  // neutral-default cues stay flat. The playing row's accent stripe (CSS)
+  // takes precedence, so only set the stripe while not playing.
   const hasCustomColor = props.item.color
     && props.item.color.toLowerCase() !== NEUTRAL_CUE_COLOR;
-  if (hasCustomColor) {
-    styles.backgroundColor = isPlaying.value || isGroupPlaying.value
-      ? hexToRgba(props.item.color, 0.5)
-      : hexToRgba(props.item.color, 0.25);
+  if (hasCustomColor && !(isPlaying.value || isGroupPlaying.value)) {
+    styles.borderLeftColor = props.item.color;
   }
 
   return styles;
@@ -706,6 +705,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 <style scoped>
 .playlist-item {
   border-radius: var(--border-radius-sm);
+  border-left: 3px solid transparent;
   margin-bottom: var(--spacing-xs);
   transition: all var(--transition-fast);
   position: relative;
@@ -721,7 +721,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 
   /* Playing row is the loudest element in the list: accent bar + heavier name */
   &.is-playing {
-    border-left: 3px solid var(--color-accent);
+    border-left-color: var(--color-accent);
     background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
 
     .item-name {
@@ -804,7 +804,13 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   pointer-events: none;
   z-index: 1;
   color: var(--color-text-primary);
-  opacity: 0.1; /* Control opacity at canvas level instead of individual bars */
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.playlist-item:hover > .item-content .waveform-canvas,
+.playlist-item:hover > .waveform-canvas {
+  opacity: 0.12;
 }
 
 .item-progress {
@@ -896,6 +902,15 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
     font-size: 14px;
     color: var(--color-text-secondary);
     opacity: 0.7;
+  }
+
+  .loop-chip {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    line-height: 1.4;
   }
 }
 

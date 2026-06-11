@@ -132,9 +132,8 @@ onUnmounted(() => {
 
 .workspace-tabs {
   display: flex;
-  gap: 0;
-  padding: 0 8px;
-  background-color: var(--color-surface);
+  gap: 4px;
+  padding: 8px 16px 0;
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
@@ -142,15 +141,17 @@ onUnmounted(() => {
 .tab-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: none;
+  gap: 6px;
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 12px;
-  border-bottom: 2px solid transparent;
-  transition: all var(--transition-fast);
+  font-size: 13px;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+  margin-bottom: -1px;
 
   .material-symbols-rounded {
     font-size: 16px;
@@ -158,12 +159,14 @@ onUnmounted(() => {
 
   &:hover {
     color: var(--color-text-primary);
-    background-color: var(--color-surface-hover);
   }
 
   &.active {
-    color: var(--color-accent);
-    border-bottom-color: var(--color-accent);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-emphasis);
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    border-bottom: 1px solid var(--color-surface);
   }
 }
 

@@ -1024,9 +1024,14 @@ const handleDrop = async (e: DragEvent) => {
   left: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.3;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
   pointer-events: none;
   z-index: 0;
+}
+
+.slot-content:hover .cart-waveform-canvas {
+  opacity: 0.25;
 }
 
 .cart-progress {
