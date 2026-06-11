@@ -107,9 +107,9 @@
             >arrow_forward</span>
             <span 
               v-else-if="item.endBehavior?.action === 'loop'" 
-              class="material-symbols-rounded behavior-icon"
+              class="loop-chip"
               :title="`End: Loop`"
-            >replay</span>
+            >loop</span>
           </div>
           
           <!-- Duration -->
@@ -992,6 +992,15 @@ const handleDrop = async (e: DragEvent) => {
     font-size: 14px;
     color: var(--color-text-secondary);
     opacity: 0.7;
+  }
+
+  .loop-chip {
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0 5px;
+    line-height: 1.4;
   }
 }
 
