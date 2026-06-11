@@ -730,8 +730,8 @@ const handleDrop = async (e: DragEvent) => {
 
 <style scoped lang="scss">
 .cart-slot {
-  border: 3px solid var(--color-border);
-  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
   background-color: var(--color-surface);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -849,16 +849,16 @@ const handleDrop = async (e: DragEvent) => {
   z-index: 2;
   
   .slot-number {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--font-size-meta);
+    font-weight: var(--font-weight-emphasis);
     color: var(--color-text-secondary);
-    min-width: 24px;
+    min-width: 18px;
     flex-shrink: 0;
   }
   
   .slot-name {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--font-size-meta);
+    font-weight: 500;
     color: var(--color-text-primary);
     overflow: hidden;
     display: -webkit-box;
