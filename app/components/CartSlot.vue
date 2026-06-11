@@ -795,17 +795,22 @@ const handleDrop = async (e: DragEvent) => {
   gap: var(--spacing-sm);
   
   .slot-number {
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--color-text-primary);
+    font-size: var(--font-size-meta);
+    font-weight: var(--font-weight-emphasis);
+    color: var(--color-text-secondary);
   }
   
   .slot-hint {
-    font-size: 12px;
-    font-style: italic;
+    font-size: 11px;
     color: var(--color-text-secondary);
     padding-left: 4px;
     text-align: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  &:hover .slot-hint {
+    opacity: 1;
   }
 
   .key-label {

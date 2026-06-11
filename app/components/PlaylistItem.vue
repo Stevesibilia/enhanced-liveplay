@@ -142,6 +142,7 @@
 
 <script setup lang="ts">
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
+import { NEUTRAL_CUE_COLOR } from '~/types/project';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -484,15 +485,17 @@ const itemStyle = computed(() => {
   const styles: any = {
     marginLeft: `${props.depth * 24}px`,
   };
-  
-  if (isPlaying.value || isGroupPlaying.value) {
-    // Playing: 50% opacity background
-    styles.backgroundColor = hexToRgba(props.item.color, 0.5);
-  } else {
-    // Inactive: 25% opacity background
-    styles.backgroundColor = hexToRgba(props.item.color, 0.25);
+
+  // Only deliberately colored cues get a tinted row; neutral-default cues
+  // stay flat (hover and is-playing styling come from CSS).
+  const hasCustomColor = props.item.color
+    && props.item.color.toLowerCase() !== NEUTRAL_CUE_COLOR;
+  if (hasCustomColor) {
+    styles.backgroundColor = isPlaying.value || isGroupPlaying.value
+      ? hexToRgba(props.item.color, 0.5)
+      : hexToRgba(props.item.color, 0.25);
   }
-  
+
   return styles;
 });
 
@@ -710,6 +713,10 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   
   &.is-selected {
     box-shadow: 0 0 0 2px var(--color-accent);
+  }
+
+  &:hover {
+    background-color: var(--color-surface-hover);
   }
 
   /* Playing row is the loudest element in the list: accent bar + heavier name */
