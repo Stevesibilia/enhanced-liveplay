@@ -16,7 +16,7 @@ declare global {
       ensureDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
       generateWaveform: (audioPath: string, outputPath: string) => Promise<{ success: boolean; error?: string }>;
       openFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
-      setCurrentProject: (projectPath: string) => Promise<{ success: boolean }>;
+      setCurrentProject: (projectPath: string | null) => Promise<{ success: boolean }>;
       exportProject: (projectFolderPath: string, projectName?: string) => Promise<{ success: boolean; path?: string; size?: number; canceled?: boolean; error?: string }>;
       importProject: () => Promise<{ 
         success: boolean; 
