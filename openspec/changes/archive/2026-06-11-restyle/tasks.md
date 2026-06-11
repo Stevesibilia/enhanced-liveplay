@@ -25,4 +25,4 @@
 ## 4. Verification
 
 - [x] 4.1 Steve eyeballs the app against mockups; iterated through 6 polish passes (red-wall data fix, flat rows, tabs, hover waveforms, color stripes, loop chip, fader, cart tiles) until approved 2026-06-11. Side finding: looping cues false-flash the end warning — tracked in issue #63
-- [ ] 4.2 Phase-2 PR merged
+- [x] 4.2 Phase-2 PR merged (#62, 2026-06-11)
