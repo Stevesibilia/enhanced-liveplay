@@ -712,7 +712,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
     box-shadow: 0 0 0 2px var(--color-accent);
   }
 
-  // Playing row is the loudest element in the list: accent bar + heavier name
+  /* Playing row is the loudest element in the list: accent bar + heavier name */
   &.is-playing {
     border-left: 3px solid var(--color-accent);
     background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
