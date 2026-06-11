@@ -303,22 +303,6 @@ const handleDrop = async (e: DragEvent) => {
   }
 }
 
-.youtube-btn {
-  background: linear-gradient(135deg, var(--color-stop-all) 0%, color-mix(in srgb, var(--color-stop-all) 80%, black) 100%);
-  color: white;
-  border-color: var(--color-stop-all);
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--color-stop-all) 80%, black) 0%, color-mix(in srgb, var(--color-stop-all) 60%, black) 100%);
-    border-color: color-mix(in srgb, var(--color-stop-all) 80%, black);
-  }
-  
-  &:disabled {
-    background: linear-gradient(135deg, var(--color-text-disabled) 0%, color-mix(in srgb, var(--color-text-disabled) 85%, black) 100%);
-    border-color: var(--color-text-disabled);
-  }
-}
-
 .playlist-content {
   flex: 1;
   overflow-y: auto;

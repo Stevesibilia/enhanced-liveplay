@@ -241,8 +241,12 @@ export const DEFAULT_THEME: Theme = {
 };
 
 // Shared base defaults for all audio items
+// Default cue color: neutral slate — rows stay calm until the user assigns
+// a color deliberately (PRESET_COLORS in the picker).
+export const NEUTRAL_CUE_COLOR = '#6b7280';
+
 const BASE_AUDIO_DEFAULTS = {
-  color: PRESET_COLORS[0],
+  color: NEUTRAL_CUE_COLOR,
   inPoint: 0,
   volume: 1.0,
   startBehavior: { action: 'nothing' } as const,

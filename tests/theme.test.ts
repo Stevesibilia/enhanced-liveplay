@@ -62,3 +62,34 @@ describe('migrateV2ToV3 — legacy default accent cleanup', () => {
     expect(p.theme.accentColor).toBe('');
   });
 });
+
+describe('migrateV3ToV4 — legacy default cue color cleanup', () => {
+  const proj = (items: any[], cartOnly: any[] = []) => ({
+    name: 'p', items, cartOnlyItems: cartOnly, schemaVersion: 3,
+    theme: { mode: 'dark', accentColor: '' },
+  });
+
+  it('recolors pure-red default cues to the neutral default', () => {
+    const p = proj([{ type: 'audio', color: '#FF0000' }]);
+    runMigrations(p);
+    expect(p.items[0].color).toBe('#6b7280');
+    expect(p.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('recurses into groups and covers cart-only items', () => {
+    const p = proj(
+      [{ type: 'group', color: '#ff0000', children: [{ type: 'audio', color: '#FF0000' }] }],
+      [{ type: 'audio', color: '#FF0000' }],
+    );
+    runMigrations(p);
+    expect(p.items[0].color).toBe('#6b7280');
+    expect((p.items[0] as any).children[0].color).toBe('#6b7280');
+    expect(p.cartOnlyItems[0].color).toBe('#6b7280');
+  });
+
+  it('preserves deliberately picked colors', () => {
+    const p = proj([{ type: 'audio', color: '#00CC99' }]);
+    runMigrations(p);
+    expect(p.items[0].color).toBe('#00CC99');
+  });
+});
