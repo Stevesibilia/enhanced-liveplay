@@ -66,6 +66,10 @@ export interface DisplayLayer {
   zIndex: number;
   published: boolean;
   isBackground?: boolean;  // full-screen, always behind, survives the Black button
+  // Geometry captured before the layer was forced full-screen as a background,
+  // so un-marking or replacing the background restores its original box instead
+  // of leaving a full-screen leftover. Workspace-only; never sent to the player.
+  prevBox?: { x: number; y: number; width: number; height: number };
 }
 
 // A layer in the player-bound payload (only published ones, absolute paths).

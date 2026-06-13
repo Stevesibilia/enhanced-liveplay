@@ -34,6 +34,9 @@
       margin: auto;
       overflow: hidden;
       background: #000;
+      /* Own stacking context so negative-z layers (backgrounds, repeated
+         send-to-back) paint above the canvas black fill, not hidden behind it. */
+      isolation: isolate;
     }
     .layer {
       position: absolute;

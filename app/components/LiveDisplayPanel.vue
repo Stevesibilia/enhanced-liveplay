@@ -103,7 +103,7 @@
         <button
           class="action-btn"
           :disabled="selectedLayer.isBackground"
-          @click="bringToFront(selectedLayer.id)"
+          @click="onBringToFront(selectedLayer)"
         >
           <span class="material-symbols-rounded">flip_to_front</span>
           Front
@@ -111,7 +111,7 @@
         <button
           class="action-btn"
           :disabled="selectedLayer.isBackground"
-          @click="sendToBack(selectedLayer.id)"
+          @click="onSendToBack(selectedLayer)"
         >
           <span class="material-symbols-rounded">flip_to_back</span>
           Back
@@ -461,6 +461,18 @@ const onToggleBackground = (layer: DisplayLayer) => {
   void syncIfReady();
 };
 
+// Re-ordering only affects the player when the layer is already live, but the
+// z-index change must be pushed so the player restacks. Sync when published.
+const onBringToFront = (layer: DisplayLayer) => {
+  bringToFront(layer.id);
+  if (layer.published) void syncIfReady();
+};
+
+const onSendToBack = (layer: DisplayLayer) => {
+  sendToBack(layer.id);
+  if (layer.published) void syncIfReady();
+};
+
 const onRemove = (id: string) => {
   const layer = layers.value.find((l) => l.id === id);
   removeLayer(id);
@@ -611,6 +623,9 @@ onUnmounted(() => {
   margin: auto;
   background-color: #000;
   overflow: hidden;
+  // Own stacking context so negative-z layers (backgrounds, repeated send-to-back)
+  // paint above the canvas's black fill instead of being hidden behind it.
+  isolation: isolate;
   // Make the 16:9 output frame visible against the black letterbox so the GM
   // sees exactly what the player window will show (WYSIWYG).
   outline: 1px solid rgba(255, 255, 255, 0.18);
@@ -666,7 +681,9 @@ onUnmounted(() => {
   &.selected {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-    z-index: 9999 !important;
+    /* No z-index boost: selection must not override layer stacking, otherwise
+       Front/Back and Background act on a layer pinned to the top. The outline
+       paints regardless of stacking order. */
   }
 
   &.pending {
