@@ -154,9 +154,20 @@ export const useVisualDisplay = () => {
   // Mark a layer as the full-screen background (or clear that role). A background
   // layer snaps to full-screen, sits behind everything, and stays published on
   // Black. Only one background may be active — enabling clears any previous one.
+  // Restore a layer's pre-background geometry (or leave it as-is if none was
+  // captured), clearing the background role. Used by un-mark and by retiring the
+  // previous background on replace — both must drop the full-screen box so the
+  // leftover layer does not blanket the canvas.
+  const clearBackgroundRole = (l: DisplayLayer): DisplayLayer => {
+    const box = l.prevBox ?? { x: l.x, y: l.y, width: l.width, height: l.height };
+    // prevBox: undefined is explicit so updateLayer's merge actually clears it.
+    return { ...l, ...box, isBackground: false, prevBox: undefined };
+  };
+
   const setBackground = (id: string, value: boolean) => {
     if (!value) {
-      updateLayer(id, { isBackground: false });
+      const target = layers.value.find((l) => l.id === id);
+      if (target) updateLayer(id, clearBackgroundRole(target));
       return;
     }
     const minZ =
@@ -165,6 +176,11 @@ export const useVisualDisplay = () => {
       if (l.id === id) {
         return {
           ...l,
+          // Capture the current box so un-marking restores it (skip if already a
+          // background, so we don't overwrite the saved box with full-screen).
+          prevBox: l.isBackground
+            ? l.prevBox
+            : { x: l.x, y: l.y, width: l.width, height: l.height },
           isBackground: true,
           published: true, // a backdrop is shown immediately and stays on Black
           x: 0,
@@ -174,7 +190,9 @@ export const useVisualDisplay = () => {
           zIndex: minZ - 1,
         };
       }
-      return l.isBackground ? { ...l, isBackground: false } : l;
+      // Retire any previous background: restore its box, clear the role, and
+      // unpublish it so it neither covers the new backdrop nor shows on the player.
+      return l.isBackground ? { ...clearBackgroundRole(l), published: false } : l;
     });
   };
 
