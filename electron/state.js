@@ -19,6 +19,7 @@ const state = {
   apiServer: null,
   apiServerPort: null, // Actual bound port (may differ from default on EADDRINUSE)
   remoteViewerEnabled: false, // Operator gate for the LAN browser viewer; default off
+  localViewerEnabled: true, // Whether the local player window is a wanted output; drives auto-open on sync
   ffmpegPath: null,
   ffmpegAvailable: false,
   ytDlpPath: null,
@@ -63,6 +64,9 @@ module.exports = {
 
   getRemoteViewerEnabled: () => state.remoteViewerEnabled,
   setRemoteViewerEnabled: (enabled) => { state.remoteViewerEnabled = enabled; },
+
+  getLocalViewerEnabled: () => state.localViewerEnabled,
+  setLocalViewerEnabled: (enabled) => { state.localViewerEnabled = enabled; },
 
   getFfmpegPath: () => state.ffmpegPath,
   setFfmpegPath: (p) => { state.ffmpegPath = p; },

@@ -14,7 +14,7 @@
           <span class="material-symbols-rounded">desktop_windows</span>
           Player window
         </span>
-        <input type="checkbox" :checked="playerWindowOpen" @change="onTogglePlayerWindow" />
+        <input type="checkbox" :checked="localEnabled" @change="onToggleLocal" />
       </label>
 
       <!-- Remote LAN browser viewer -->
@@ -50,7 +50,7 @@ import QRCode from 'qrcode';
 const rootRef = ref<HTMLElement | null>(null);
 const popoverOpen = ref(false);
 const remoteEnabled = ref(false);
-const playerWindowOpen = ref(false);
+const localEnabled = ref(true);
 const urls = ref<string[]>([]);
 const qrDataUrl = ref<string>('');
 
@@ -63,10 +63,9 @@ async function refreshStatus() {
   const status = await api()?.getRemoteViewerStatus();
   if (status) {
     remoteEnabled.value = status.enabled;
+    localEnabled.value = status.localEnabled;
     urls.value = status.urls || [];
   }
-  const pw = await api()?.getPlayerWindowStatus();
-  if (pw) playerWindowOpen.value = pw.open;
 }
 
 async function togglePopover() {
@@ -81,12 +80,10 @@ async function onToggleRemote(e: Event) {
   if (remoteEnabled.value) await refreshStatus();
 }
 
-async function onTogglePlayerWindow(e: Event) {
-  const open = (e.target as HTMLInputElement).checked;
-  if (open) await api()?.openPlayerWindow();
-  else await api()?.closePlayerWindow();
-  // Status change also arrives via onPlayerWindowStatusChanged.
-  playerWindowOpen.value = open;
+async function onToggleLocal(e: Event) {
+  const enabled = (e.target as HTMLInputElement).checked;
+  const res = await api()?.setLocalViewerEnabled(enabled);
+  localEnabled.value = res?.localEnabled ?? enabled;
 }
 
 // Regenerate the QR whenever the primary URL changes (client-side, no network).
@@ -108,7 +105,9 @@ function onDocClick(e: MouseEvent) {
 let detachStatus: (() => void) | undefined;
 onMounted(() => {
   document.addEventListener('mousedown', onDocClick);
-  api()?.onPlayerWindowStatusChanged((isOpen: boolean) => { playerWindowOpen.value = isOpen; });
+  // Window opening/closing (menu or OS chrome) moves localViewerEnabled in
+  // lockstep in the main process; mirror it so the toggle stays accurate.
+  api()?.onPlayerWindowStatusChanged((isOpen: boolean) => { localEnabled.value = isOpen; });
   refreshStatus();
 });
 onBeforeUnmount(() => {

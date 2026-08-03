@@ -159,5 +159,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Remote viewer (LAN browser)
   setRemoteViewerEnabled: (enabled) => ipcRenderer.invoke('set-remote-viewer-enabled', enabled),
-  getRemoteViewerStatus: () => ipcRenderer.invoke('get-remote-viewer-status')
+  getRemoteViewerStatus: () => ipcRenderer.invoke('get-remote-viewer-status'),
+  // Local viewer (second-monitor player window) toggle
+  setLocalViewerEnabled: (enabled) => ipcRenderer.invoke('set-local-viewer-enabled', enabled)
 });

@@ -131,9 +131,28 @@ function register(deps) {
   ipcMain.handle('get-remote-viewer-status', () => {
     return {
       enabled: state.getRemoteViewerEnabled(),
+      localEnabled: state.getLocalViewerEnabled(),
       port: state.getApiServerPort(),
       urls: remoteViewerUrls(),
     };
+  });
+
+  // Local viewer (second-monitor player window) toggle. Enabling opens the
+  // window; disabling closes it. The window lifecycle also keeps
+  // localViewerEnabled in sync (see windows.js), so this stays consistent with
+  // the menu item and OS-driven window close.
+  ipcMain.handle('set-local-viewer-enabled', (event, enabled) => {
+    const next = !!enabled;
+    if (next) {
+      state.setLocalViewerEnabled(true);
+      const pw = state.getPlayerWindow();
+      if (!pw || pw.isDestroyed()) createPlayerWindow();
+    } else {
+      // closePlayerWindow -> 'closed' handler clears the flag.
+      if (state.getPlayerWindow()) closePlayerWindow();
+      state.setLocalViewerEnabled(false);
+    }
+    return { success: true, localEnabled: next };
   });
 
   // Accepts a PlayerDisplayState payload: { layers: PublishedLayer[] }.
@@ -147,7 +166,14 @@ function register(deps) {
     // Mirror to any connected remote viewers (SSE). Independent of the local
     // player window's readiness — the buffered state also replays on connect.
     broadcastDisplayState(displayState);
-    const playerWindow = state.getPlayerWindow();
+    // Auto-open the local player window only when it is a wanted output. This
+    // is independent of the remote viewer: both outputs can be on at once, and
+    // a remote-only operator (local disabled) never gets the window forced open.
+    let playerWindow = state.getPlayerWindow();
+    if (state.getLocalViewerEnabled() && (!playerWindow || playerWindow.isDestroyed())) {
+      createPlayerWindow();
+      playerWindow = state.getPlayerWindow();
+    }
     if (playerWindow && !playerWindow.isDestroyed() && state.getPlayerReady()) {
       playerWindow.webContents.send('display-state', displayState);
       return { success: true };
