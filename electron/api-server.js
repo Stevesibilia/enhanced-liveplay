@@ -1,10 +1,14 @@
 const express = require('express');
 const state = require('./state');
+const { registerRemoteViewerRoutes } = require('./remote-viewer');
 
 // API Server Setup
 function startAPIServer(port = 8080, maxAttempts = 10) {
   const apiApp = express();
   apiApp.use(express.json());
+
+  // Remote viewer routes (/player, /media, /events, shared renderer assets).
+  registerRemoteViewerRoutes(apiApp);
 
   // Trigger item by UUID
   apiApp.get('/api/trigger/uuid/:uuid', (req, res) => {

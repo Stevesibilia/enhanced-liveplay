@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E-LivePlay Viewer</title>
+  <link rel="stylesheet" href="/player-renderer.css">
+</head>
+<body>
+  <div id="display"><div id="canvas"></div></div>
+
+  <script>
+    // Browser transport shim: wire the shared renderer to the HTTP media
+    // endpoint and a Server-Sent Events stream. Same renderer the Electron
+    // player window uses; only the transport differs.
+    window.PlayerTransport = {
+      mediaUrl: (absolutePath) => '/media?path=' + encodeURIComponent(absolutePath),
+      onDisplayState: (cb) => {
+        const es = new EventSource('/events');
+        es.addEventListener('display-state', (e) => {
+          try { cb(JSON.parse(e.data)); } catch (_) {}
+        });
+        // EventSource auto-reconnects; the server replays the buffered state
+        // on each (re)connect, so no manual resync is needed here.
+      },
+      // Server pushes the buffered state on connect — nothing to signal.
+      signalReady: () => {},
+      // Fullscreen: tap anywhere to toggle the browser's native fullscreen.
+      requestToggleFullscreen: () => {
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        else document.documentElement.requestFullscreen?.();
+      },
+    };
+
+    document.addEventListener('click', () => {
+      window.PlayerTransport.requestToggleFullscreen();
+    });
+  </script>
+  <script src="/player-renderer.js"></script>
+</body>
+</html>

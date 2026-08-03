@@ -4,6 +4,7 @@ const fs = require('fs');
 const { getMimeType } = require('../lib/mime');
 const state = require('../state');
 const { createPlayerWindow, closePlayerWindow } = require('../windows');
+const { broadcastDisplayState } = require('../remote-viewer');
 
 // Player window and visual media IPC handlers.
 // deps: { rebuildMenu } — re-renders the app menu with the current locale.
@@ -106,6 +107,9 @@ function register(deps) {
     // a window reopen. Only send now if the renderer has signalled readiness;
     // otherwise 'player-ready' (or did-finish-load) will flush it.
     state.setLastDisplayState(displayState);
+    // Mirror to any connected remote viewers (SSE). Independent of the local
+    // player window's readiness — the buffered state also replays on connect.
+    broadcastDisplayState(displayState);
     const playerWindow = state.getPlayerWindow();
     if (playerWindow && !playerWindow.isDestroyed() && state.getPlayerReady()) {
       playerWindow.webContents.send('display-state', displayState);
