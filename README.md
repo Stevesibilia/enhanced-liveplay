@@ -106,6 +106,8 @@ Get the latest release for your platform:
 
 - **Integration ready**: Works with control systems, scripts, or web pages
 
+- **Remote Viewer**: Mirror the visual output to any browser on your network — an Android tablet, phone, or laptop as a second screen, no app install (scan a QR code to connect; local network only)
+
 ### 🎨 Customization
 
 - **Dark/Light themes**: Choose your preferred interface style
