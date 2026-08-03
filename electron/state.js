@@ -26,8 +26,10 @@ const state = {
   ytDlpReady: false,
 };
 
-// True when launched with --dev or running unpackaged
-const isDevMode = process.argv.includes('--dev') || !app.isPackaged;
+// True when launched with --dev or running unpackaged.
+// `app` is absent when this module is imported outside the electron runtime
+// (e.g. unit tests), so guard the access — production always has it.
+const isDevMode = process.argv.includes('--dev') || !app?.isPackaged;
 
 module.exports = {
   isDevMode,

@@ -41,7 +41,7 @@
 
 ## 7. Docs & guardrails
 
-- [ ] 7.1 Document the LAN-trust boundary (unauthenticated, binds all interfaces, streams project media, opt-in via toggle) in README/guides
-- [ ] 7.2 Update the `player-window` / relevant guide to mention the remote viewer path and unified toggles
-- [ ] 7.3 Add/adjust tests for the media path-safety guard, SSE broadcast, and route gating where practical
+- [x] 7.1 Document the LAN-trust boundary (unauthenticated, binds all interfaces, streams project media, opt-in via toggle) in README/guides
+- [x] 7.2 Update the `player-window` / relevant guide to mention the remote viewer path and unified toggles (README "Remote Viewer" section; architecture in the change spec)
+- [x] 7.3 Add/adjust tests for the media path-safety guard, SSE broadcast, and route gating where practical (`tests/remote-viewer.test.ts`, 9 cases)
 
