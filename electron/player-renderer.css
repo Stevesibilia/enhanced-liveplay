@@ -1,0 +1,54 @@
+/* Shared player display styles.
+ * Loaded by both the local Electron player window (player.html) and the
+ * remote browser viewer served over HTTP, so layer geometry, letterboxing,
+ * and fade behaviour stay identical across both outputs. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#display {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  /* Center the fixed 16:9 canvas; remaining space is black letterbox. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+}
+#canvas {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  /* Largest 16:9 box that fits the window in either orientation. */
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  height: auto;
+  margin: auto;
+  overflow: hidden;
+  background: #000;
+  /* Own stacking context so negative-z layers (backgrounds, repeated
+     send-to-back) paint above the canvas black fill, not hidden behind it. */
+  isolation: isolate;
+}
+.layer {
+  position: absolute;
+  overflow: hidden;
+  opacity: 1;
+}
+.layer.entering {
+  opacity: 0;
+}
+.layer.leaving {
+  opacity: 0;
+}
+.layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
