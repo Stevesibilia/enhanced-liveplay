@@ -1,9 +1,30 @@
 const { ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { getMimeType } = require('../lib/mime');
 const state = require('../state');
 const { createPlayerWindow, closePlayerWindow } = require('../windows');
+const { broadcastDisplayState, closeAllViewers } = require('../remote-viewer');
+
+// Non-internal IPv4 addresses the tablet could reach the server on.
+function lanAddresses() {
+  const out = [];
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) out.push(iface.address);
+    }
+  }
+  return out;
+}
+
+// Reachable viewer URLs for every LAN address on the actual bound port.
+function remoteViewerUrls() {
+  const port = state.getApiServerPort();
+  if (!port) return [];
+  return lanAddresses().map((ip) => `http://${ip}:${port}/player`);
+}
 
 // Player window and visual media IPC handlers.
 // deps: { rebuildMenu } — re-renders the app menu with the current locale.
@@ -98,6 +119,42 @@ function register(deps) {
     return { open: !!playerWindow && !playerWindow.isDestroyed() };
   });
 
+  // Remote viewer (LAN browser) toggle + status.
+  ipcMain.handle('set-remote-viewer-enabled', (event, enabled) => {
+    const next = !!enabled;
+    state.setRemoteViewerEnabled(next);
+    // Disabling drops connected tablets immediately.
+    if (!next) closeAllViewers();
+    return { success: true, enabled: next };
+  });
+
+  ipcMain.handle('get-remote-viewer-status', () => {
+    return {
+      enabled: state.getRemoteViewerEnabled(),
+      localEnabled: state.getLocalViewerEnabled(),
+      port: state.getApiServerPort(),
+      urls: remoteViewerUrls(),
+    };
+  });
+
+  // Local viewer (second-monitor player window) toggle. Enabling opens the
+  // window; disabling closes it. The window lifecycle also keeps
+  // localViewerEnabled in sync (see windows.js), so this stays consistent with
+  // the menu item and OS-driven window close.
+  ipcMain.handle('set-local-viewer-enabled', (event, enabled) => {
+    const next = !!enabled;
+    if (next) {
+      state.setLocalViewerEnabled(true);
+      const pw = state.getPlayerWindow();
+      if (!pw || pw.isDestroyed()) createPlayerWindow();
+    } else {
+      // closePlayerWindow -> 'closed' handler clears the flag.
+      if (state.getPlayerWindow()) closePlayerWindow();
+      state.setLocalViewerEnabled(false);
+    }
+    return { success: true, localEnabled: next };
+  });
+
   // Accepts a PlayerDisplayState payload: { layers: PublishedLayer[] }.
   // (Legacy single-item payloads are no longer emitted by the renderer; the
   // player.html handler keeps a compatibility branch for safety.)
@@ -106,7 +163,17 @@ function register(deps) {
     // a window reopen. Only send now if the renderer has signalled readiness;
     // otherwise 'player-ready' (or did-finish-load) will flush it.
     state.setLastDisplayState(displayState);
-    const playerWindow = state.getPlayerWindow();
+    // Mirror to any connected remote viewers (SSE). Independent of the local
+    // player window's readiness — the buffered state also replays on connect.
+    broadcastDisplayState(displayState);
+    // Auto-open the local player window only when it is a wanted output. This
+    // is independent of the remote viewer: both outputs can be on at once, and
+    // a remote-only operator (local disabled) never gets the window forced open.
+    let playerWindow = state.getPlayerWindow();
+    if (state.getLocalViewerEnabled() && (!playerWindow || playerWindow.isDestroyed())) {
+      createPlayerWindow();
+      playerWindow = state.getPlayerWindow();
+    }
     if (playerWindow && !playerWindow.isDestroyed() && state.getPlayerReady()) {
       playerWindow.webContents.send('display-state', displayState);
       return { success: true };

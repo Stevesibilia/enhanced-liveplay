@@ -1,10 +1,14 @@
 const express = require('express');
 const state = require('./state');
+const { registerRemoteViewerRoutes } = require('./remote-viewer');
 
 // API Server Setup
 function startAPIServer(port = 8080, maxAttempts = 10) {
   const apiApp = express();
   apiApp.use(express.json());
+
+  // Remote viewer routes (/player, /media, /events, shared renderer assets).
+  registerRemoteViewerRoutes(apiApp);
 
   // Trigger item by UUID
   apiApp.get('/api/trigger/uuid/:uuid', (req, res) => {
@@ -58,6 +62,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
     const server = apiApp.listen(currentPort)
       .on('listening', () => {
         state.setApiServer(server);
+        state.setApiServerPort(currentPort);
         console.log(`E-LivePlay API Server running on http://localhost:${currentPort}`);
       })
       .on('error', (err) => {

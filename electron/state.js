@@ -17,6 +17,9 @@ const state = {
   visualDisplayEnabled: true, // Per-project flag mirrored from renderer; gates player window menu item
   lastDisplayState: null, // Newest display state; buffered for flush + reopen
   apiServer: null,
+  apiServerPort: null, // Actual bound port (may differ from default on EADDRINUSE)
+  remoteViewerEnabled: false, // Operator gate for the LAN browser viewer; default off
+  localViewerEnabled: true, // Whether the local player window is a wanted output; drives auto-open on sync
   ffmpegPath: null,
   ffmpegAvailable: false,
   ytDlpPath: null,
@@ -55,6 +58,15 @@ module.exports = {
 
   getApiServer: () => state.apiServer,
   setApiServer: (server) => { state.apiServer = server; },
+
+  getApiServerPort: () => state.apiServerPort,
+  setApiServerPort: (port) => { state.apiServerPort = port; },
+
+  getRemoteViewerEnabled: () => state.remoteViewerEnabled,
+  setRemoteViewerEnabled: (enabled) => { state.remoteViewerEnabled = enabled; },
+
+  getLocalViewerEnabled: () => state.localViewerEnabled,
+  setLocalViewerEnabled: (enabled) => { state.localViewerEnabled = enabled; },
 
   getFfmpegPath: () => state.ffmpegPath,
   setFfmpegPath: (p) => { state.ffmpegPath = p; },

@@ -3,21 +3,15 @@ import type { PlayerDisplayState } from '~/types/ipc';
 /**
  * Pushes the full published-layer state to the player window via IPC.
  *
- * The player window is auto-opened on the first sync. Delivery buffering lives
- * in the main process: it caches the last state and flushes it once the player
- * renderer signals readiness, so a push issued before the window has finished
- * loading is never dropped. This composable therefore pushes unconditionally
- * after ensuring the window is open — no timing guess needed.
+ * All delivery and window management live in the main process: it caches the
+ * last state, flushes it once the player renderer signals readiness, mirrors it
+ * to connected remote viewers, and auto-opens the local player window only when
+ * the local output is enabled (independent of the remote viewer). The push is
+ * therefore unconditional — no window handling needed here.
  */
 export const usePlayerSync = () => {
   const syncToPlayer = async (state: PlayerDisplayState) => {
     if (!import.meta.client || !window.electronAPI) return;
-
-    const status = await window.electronAPI.getPlayerWindowStatus();
-    if (!status.open) {
-      await window.electronAPI.openPlayerWindow();
-    }
-
     await window.electronAPI.pushToPlayer(state as any);
   };
 

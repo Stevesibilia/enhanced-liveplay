@@ -394,6 +394,9 @@ function createPlayerWindow() {
 
   const playerWindow = new BrowserWindow(windowOptions);
   state.setPlayerWindow(playerWindow);
+  // Opening the local player window marks it a wanted output (drives auto-open
+  // on subsequent syncs until the operator closes it again).
+  state.setLocalViewerEnabled(true);
 
   // Renderer is not listening until it signals 'player-ready'.
   state.setPlayerReady(false);
@@ -428,6 +431,9 @@ function createPlayerWindow() {
     state.setPlayerWindow(null);
     // Keep lastDisplayState so a reopen restores content; just mark not-ready.
     state.setPlayerReady(false);
+    // Closing the window (OS chrome or operator toggle) means the local output
+    // is no longer wanted — don't let the next sync auto-reopen it.
+    state.setLocalViewerEnabled(false);
   });
 
   // Notify main renderer that player window opened
