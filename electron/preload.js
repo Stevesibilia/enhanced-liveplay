@@ -155,5 +155,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlayerWindowStatus: () => ipcRenderer.invoke('get-player-window-status'),
   pushToPlayer: (displayState) => ipcRenderer.invoke('push-to-player', displayState),
   togglePlayerFullscreen: () => ipcRenderer.invoke('toggle-player-fullscreen'),
-  onPlayerWindowStatusChanged: (callback) => ipcRenderer.on('player-window-status-changed', (event, isOpen) => callback(isOpen))
+  onPlayerWindowStatusChanged: (callback) => ipcRenderer.on('player-window-status-changed', (event, isOpen) => callback(isOpen)),
+
+  // Remote viewer (LAN browser)
+  setRemoteViewerEnabled: (enabled) => ipcRenderer.invoke('set-remote-viewer-enabled', enabled),
+  getRemoteViewerStatus: () => ipcRenderer.invoke('get-remote-viewer-status')
 });

@@ -62,6 +62,7 @@ function startAPIServer(port = 8080, maxAttempts = 10) {
     const server = apiApp.listen(currentPort)
       .on('listening', () => {
         state.setApiServer(server);
+        state.setApiServerPort(currentPort);
         console.log(`E-LivePlay API Server running on http://localhost:${currentPort}`);
       })
       .on('error', (err) => {

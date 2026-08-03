@@ -103,6 +103,9 @@ declare global {
       pushToPlayer: (displayState: PlayerDisplayState | DisplayState) => Promise<{ success: boolean; error?: string }>;
       togglePlayerFullscreen: () => Promise<{ success: boolean; error?: string }>;
       onPlayerWindowStatusChanged: (callback: (isOpen: boolean) => void) => void;
+      // Remote viewer (LAN browser)
+      setRemoteViewerEnabled: (enabled: boolean) => Promise<{ success: boolean; enabled: boolean }>;
+      getRemoteViewerStatus: () => Promise<{ enabled: boolean; port: number | null; urls: string[] }>;
     };
   }
 

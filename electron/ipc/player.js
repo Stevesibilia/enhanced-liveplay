@@ -1,10 +1,30 @@
 const { ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { getMimeType } = require('../lib/mime');
 const state = require('../state');
 const { createPlayerWindow, closePlayerWindow } = require('../windows');
-const { broadcastDisplayState } = require('../remote-viewer');
+const { broadcastDisplayState, closeAllViewers } = require('../remote-viewer');
+
+// Non-internal IPv4 addresses the tablet could reach the server on.
+function lanAddresses() {
+  const out = [];
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) out.push(iface.address);
+    }
+  }
+  return out;
+}
+
+// Reachable viewer URLs for every LAN address on the actual bound port.
+function remoteViewerUrls() {
+  const port = state.getApiServerPort();
+  if (!port) return [];
+  return lanAddresses().map((ip) => `http://${ip}:${port}/player`);
+}
 
 // Player window and visual media IPC handlers.
 // deps: { rebuildMenu } — re-renders the app menu with the current locale.
@@ -97,6 +117,23 @@ function register(deps) {
   ipcMain.handle('get-player-window-status', () => {
     const playerWindow = state.getPlayerWindow();
     return { open: !!playerWindow && !playerWindow.isDestroyed() };
+  });
+
+  // Remote viewer (LAN browser) toggle + status.
+  ipcMain.handle('set-remote-viewer-enabled', (event, enabled) => {
+    const next = !!enabled;
+    state.setRemoteViewerEnabled(next);
+    // Disabling drops connected tablets immediately.
+    if (!next) closeAllViewers();
+    return { success: true, enabled: next };
+  });
+
+  ipcMain.handle('get-remote-viewer-status', () => {
+    return {
+      enabled: state.getRemoteViewerEnabled(),
+      port: state.getApiServerPort(),
+      urls: remoteViewerUrls(),
+    };
   });
 
   // Accepts a PlayerDisplayState payload: { layers: PublishedLayer[] }.

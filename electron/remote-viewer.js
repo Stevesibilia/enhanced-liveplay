@@ -13,12 +13,29 @@ const { pathIsInProjectFolder } = require('./lib/path-guard');
 //   GET /media?path=<abs>    -> streams a project media file (path-guarded)
 //   GET /events              -> Server-Sent Events stream of displayState pushes
 //
-// NOTE: these routes are not yet gated behind the operator toggle (that lands
-// in a follow-up change). File streaming is confined to the active project
-// folder via pathIsInProjectFolder.
+// All routes are gated behind the operator toggle (state.remoteViewerEnabled,
+// default off): when off they 404 and no media is streamed. File streaming is
+// additionally confined to the active project folder via pathIsInProjectFolder.
 
 // Open SSE connections. Each is an Express `res` we write display-state events to.
 const sseClients = new Set();
+
+// Gate: reject remote viewer traffic unless the operator has enabled it.
+function remoteViewerGate(req, res, next) {
+  if (!state.getRemoteViewerEnabled()) {
+    return res.status(404).send('Remote viewer disabled');
+  }
+  next();
+}
+
+// Drop all live viewers — called when the operator disables remote viewing so
+// connected tablets stop receiving updates immediately.
+function closeAllViewers() {
+  for (const res of sseClients) {
+    try { res.end(); } catch (_) {}
+  }
+  sseClients.clear();
+}
 
 function sseSend(res, event, data) {
   res.write(`event: ${event}\n`);
@@ -40,6 +57,9 @@ function broadcastDisplayState(displayState) {
 }
 
 function registerRemoteViewerRoutes(app) {
+  // Every remote viewer route is gated behind the operator toggle.
+  app.use(['/player', '/player-renderer.js', '/player-renderer.css', '/media', '/events'], remoteViewerGate);
+
   // Shared renderer assets (identical files the Electron player window loads).
   app.get('/player-renderer.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'player-renderer.js'));
@@ -98,4 +118,4 @@ function registerRemoteViewerRoutes(app) {
   });
 }
 
-module.exports = { registerRemoteViewerRoutes, broadcastDisplayState };
+module.exports = { registerRemoteViewerRoutes, broadcastDisplayState, closeAllViewers };

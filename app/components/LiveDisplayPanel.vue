@@ -12,6 +12,7 @@
         <span class="material-symbols-rounded">block</span>
         Black
       </button>
+      <RemoteViewerControl />
     </div>
 
     <div

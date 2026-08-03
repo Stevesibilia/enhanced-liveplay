@@ -27,16 +27,16 @@
 
 ## 5. Remote viewer toggle (default off)
 
-- [ ] 5.1 Add a `remoteViewerEnabled` flag (state + IPC toggle handlers, mirroring `open-player-window`/`close-player-window` in `ipc/player.js`)
-- [ ] 5.2 Gate `/player`, `/media`, `/events` on the flag — refuse (403/404) when off; close open SSE connections when toggled off
+- [x] 5.1 Add a `remoteViewerEnabled` flag (state + IPC toggle handlers, mirroring `open-player-window`/`close-player-window` in `ipc/player.js`)
+- [x] 5.2 Gate `/player`, `/media`, `/events` on the flag — refuse (403/404) when off; close open SSE connections when toggled off
 - [ ] 5.3 Verify: default off → routes refused, no media streamed; enable → routes respond; disable mid-session → viewers dropped
 
 ## 6. Viewer controls + URL in UI
 
-- [ ] 6.1 Have the API server report its actual bound port to the renderer (accounts for `EADDRINUSE` increment)
-- [ ] 6.2 Enumerate non-internal IPv4 via `os.networkInterfaces()`; build `http://<lan-ip>:<port>/player`
-- [ ] 6.3 Surface unified viewer-output controls: local player-window toggle beside the remote viewer toggle
-- [ ] 6.4 Show the viewer URL as selectable text and a client-side QR code (self-contained generator, no network) while remote is enabled
+- [x] 6.1 Have the API server report its actual bound port to the renderer (accounts for `EADDRINUSE` increment)
+- [x] 6.2 Enumerate non-internal IPv4 via `os.networkInterfaces()`; build `http://<lan-ip>:<port>/player`
+- [x] 6.3 Surface unified viewer-output controls: local player-window toggle beside the remote viewer toggle
+- [x] 6.4 Show the viewer URL as selectable text and a client-side QR code (self-contained generator, no network) while remote is enabled
 - [ ] 6.5 Verify displayed text URL and QR both match a fallback bind when the default port is taken
 
 ## 7. Docs & guardrails
