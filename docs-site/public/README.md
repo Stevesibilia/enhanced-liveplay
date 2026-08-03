@@ -106,6 +106,8 @@ Get the latest release for your platform:
 
 - **Integration ready**: Works with control systems, scripts, or web pages
 
+- **Remote Viewer**: Mirror the visual output to any browser on your network — an Android tablet, phone, or laptop as a second screen, no app install (scan a QR code to connect; local network only)
+
 ### 🎨 Customization
 
 - **Dark/Light themes**: Choose your preferred interface style
@@ -299,6 +301,31 @@ curl http://localhost:8080/api/project/info
 ```
 
 **Tip**: Copy the API trigger URL from any cue's Properties Panel.
+
+### Remote Viewer (tablet / second screen over Wi-Fi)
+
+Show your visuals on any device with a browser — an Android tablet propped at
+the table, a phone, a laptop — without extra hardware or an app install. The
+device just opens a page served by LivePlay over your local network.
+
+**How to use it:**
+
+1. In the composition panel, click **Viewer** and turn on **Remote viewer**
+   (it is **off by default**).
+2. A URL like `http://192.168.1.42:8080/player` and a **QR code** appear.
+3. On the tablet (same Wi-Fi), scan the QR code or type the URL into a browser.
+4. The tablet now mirrors the visual output. Publishing, unpublishing, moving
+   layers, and fades all update live.
+
+The **Player window** (second-monitor output) and the **Remote viewer** are
+independent — use either, both, or neither.
+
+> ⚠️ **Security — local network only.** When enabled, the remote viewer serves
+> the current project's visual media to **anyone on the same network**, with no
+> password. It binds to all network interfaces on port 8080 (the same server as
+> the Remote Control API above). Only enable it on a network you trust, and
+> turn it off when you are done — disabling it immediately drops any connected
+> viewers. File serving is confined to the active project folder.
 
 ### Audio Ducking Explained
 
