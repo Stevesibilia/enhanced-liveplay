@@ -143,6 +143,8 @@
 <script setup lang="ts">
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import { NEUTRAL_CUE_COLOR } from '~/types/project';
+import { resolveWaveformPath } from '~/utils/paths';
+import { waveformDisplayScale } from '~/utils/audio';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -253,16 +255,19 @@ const drawWaveform = () => {
   
   const barWidth = rect.width / trimmedPeaks.length;
   const centerY = rect.height / 2;
-  
+
   // Apply volume scaling to waveform display
   const volumeMultiplier = audioItem.volume || 1.0;
-  
+  // Peak-normalize display so quiet cues stay visible. Scale is computed over
+  // the whole track so trimming doesn't rescale the surviving region.
+  const displayScale = waveformDisplayScale(peaks);
+
   trimmedPeaks.forEach((value, i) => {
-    // Values are already normalized 0-1, scale by volume
-    const barHeight = value * rect.height * 0.8 * volumeMultiplier; // Use 80% of height, scaled by volume
+    // Values are already normalized 0-1, scale by volume and display scale
+    const barHeight = Math.min(value * volumeMultiplier * displayScale, 1) * rect.height * 0.8; // Use 80% of height
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
-    
+
     ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
   });
 };
@@ -341,9 +346,9 @@ const startWaveformPolling = () => {
     }
     
     // Try to load waveform from file
-    if (window.electronAPI && audioItem.waveformPath) {
+    if (window.electronAPI && audioItem.waveformPath && currentProject.value) {
       try {
-        const result = await window.electronAPI.readFile(audioItem.waveformPath);
+        const result = await window.electronAPI.readFile(resolveWaveformPath(currentProject.value.folderPath, audioItem.waveformPath));
         if (result.success && result.data) {
           const waveformData = JSON.parse(result.data);
           if (waveformData.peaks && waveformData.peaks.length > 0) {

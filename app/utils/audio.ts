@@ -88,6 +88,33 @@ export function calculateNormalizationGain(currentLoudnessDb: number, targetLoud
 }
 
 /**
+ * Peak-normalization scale for waveform *display*.
+ *
+ * Waveform peaks are stored at true full scale, so a quiet cue (e.g. RMS
+ * ~-17 dB) renders as a near-flat line. This returns a multiplier that scales
+ * the loudest peak up toward full height, so the shape becomes visible. It only
+ * affects rendered bar height — bar *color* stays keyed off the true level so
+ * it still communicates loudness.
+ *
+ * Capped by maxScale so a near-silent file's noise floor isn't blown up to full
+ * screen (which would render pure hiss as a solid block).
+ *
+ * @param peaks - Waveform peak data (0-1)
+ * @param maxScale - Upper bound on the multiplier (default 8× ≈ boost floor of 0.125)
+ * @returns Display scale multiplier (>= 1, <= maxScale)
+ */
+export function waveformDisplayScale(peaks: number[] | null | undefined, maxScale = 8): number {
+  if (!peaks || peaks.length === 0) return 1;
+  let max = 0;
+  for (const p of peaks) {
+    const a = Math.abs(p);
+    if (a > max) max = a;
+  }
+  if (max <= 0) return 1;
+  return Math.min(1 / max, maxScale);
+}
+
+/**
  * Estimate audio level at current playback position
  * Combines volume setting with waveform data
  * 

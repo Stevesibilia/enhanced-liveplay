@@ -46,6 +46,7 @@ import YouTubeImportModal from './YouTubeImportModal.vue';
 import { triggerRef } from 'vue';
 import type { AudioItem, GroupItem } from '~/types/project';
 import { DEFAULT_AUDIO_ITEM, DEFAULT_GROUP_ITEM } from '~/types/project';
+import { resolveWaveformPath } from '~/utils/paths';
 
 const { currentProject, addItem, updateIndices, saveProject, triggerWaveformUpdate } = useProject();
 const { t } = useLocalization();
@@ -90,7 +91,7 @@ const importAudioFile = async (sourcePath: string) => {
       type: 'audio',
       mediaFileName: fileName,
       mediaPath: `media/${fileName}`, // Store relative path to project folder
-      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      waveformPath: `${uuid}.json`, // bare filename; resolved against folderPath at runtime
       waveform: undefined, // Will be generated asynchronously
       outPoint: duration,
       duration
@@ -113,9 +114,13 @@ const generateWaveformAsync = async (item: AudioItem) => {
     // Ensure waveforms directory exists
     const waveformsDir = `${currentProject.value.folderPath}/waveforms`;
     await window.electronAPI.ensureDirectory(waveformsDir);
-    
+
+    // Resolve the waveform file against the current folder (stored value is a
+    // bare, host-portable filename).
+    const waveformPath = resolveWaveformPath(currentProject.value.folderPath, item.waveformPath);
+
     // Check if waveform file already exists and is valid
-    const existingWaveform = await window.electronAPI.readFile(item.waveformPath);
+    const existingWaveform = await window.electronAPI.readFile(waveformPath);
     if (existingWaveform.success && existingWaveform.data) {
       try {
         const waveformData = JSON.parse(existingWaveform.data);
@@ -149,7 +154,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
     
     // Generate waveform using ffmpeg (non-blocking)
     const mediaPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-    const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
+    const result = await window.electronAPI.generateWaveform(mediaPath, waveformPath);
     
     if (result.success) {
       console.log(`Started waveform generation for ${item.displayName}`);
@@ -157,7 +162,7 @@ const generateWaveformAsync = async (item: AudioItem) => {
       // Start polling for waveform file (check every 2 seconds)
       const pollInterval = setInterval(async () => {
         try {
-          const waveformFile = await window.electronAPI.readFile(item.waveformPath);
+          const waveformFile = await window.electronAPI.readFile(waveformPath);
           if (waveformFile.success && waveformFile.data) {
             const waveformData = JSON.parse(waveformFile.data);
             

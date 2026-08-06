@@ -123,6 +123,8 @@
 <script setup lang="ts">
 import { triggerRef } from 'vue';
 import type { AudioItem } from '~/types/project';
+import { resolveWaveformPath } from '~/utils/paths';
+import { waveformDisplayScale } from '~/utils/audio';
 
 const props = defineProps<{
   slot: number;
@@ -260,7 +262,9 @@ const importAudioFileToSlot = async (filePath: string) => {
     const { DEFAULT_CART_AUDIO_ITEM } = await import('~/types/project');
     
     const uuid = uuidv4();
-    const waveformPath = `${currentProject.value.folderPath}/waveforms/${uuid}.json`;
+    // Store the bare filename; resolved against the current folderPath at
+    // runtime so the project stays portable across synced hosts.
+    const waveformPath = `${uuid}.json`;
     
     const newItem: AudioItem = {
       ...DEFAULT_CART_AUDIO_ITEM,
@@ -316,17 +320,18 @@ const generateWaveformForItem = async (item: AudioItem) => {
     }
     
     const mediaPath = `${currentProject.value.folderPath}/media/${item.mediaFileName}`;
-    
+    const waveformPath = resolveWaveformPath(currentProject.value.folderPath, item.waveformPath);
+
     // Generate waveform using ffmpeg (non-blocking)
-    const result = await window.electronAPI.generateWaveform(mediaPath, item.waveformPath);
-    
+    const result = await window.electronAPI.generateWaveform(mediaPath, waveformPath);
+
     if (result.success) {
       console.log(`Started waveform generation for cart slot ${props.slot + 1}`);
-      
+
       // Start polling for waveform file (check every 2 seconds)
       const pollInterval = setInterval(async () => {
         try {
-          const waveformFile = await window.electronAPI.readFile(item.waveformPath);
+          const waveformFile = await window.electronAPI.readFile(waveformPath);
           if (waveformFile.success && waveformFile.data) {
             const waveformData = JSON.parse(waveformFile.data);
             
@@ -478,16 +483,19 @@ const drawWaveform = () => {
   
   const barWidth = rect.width / trimmedPeaks.length;
   const centerY = rect.height / 2;
-  
+
   // Apply volume scaling to waveform display
   const volumeMultiplier = audioItem.volume || 1.0;
-  
+  // Peak-normalize display so quiet cues stay visible. Scale is computed over
+  // the whole track so trimming doesn't rescale the surviving region.
+  const displayScale = waveformDisplayScale(peaks);
+
   trimmedPeaks.forEach((value, i) => {
-    // Values are already normalized 0-1, scale by volume
-    const barHeight = value * rect.height * 0.8 * volumeMultiplier;
+    // Values are already normalized 0-1, scale by volume and display scale
+    const barHeight = Math.min(value * volumeMultiplier * displayScale, 1) * rect.height * 0.8;
     const x = i * barWidth;
     const y = centerY - barHeight / 2;
-    
+
     ctx.fillRect(x, y, Math.max(barWidth, 1), barHeight);
   });
 };
@@ -568,9 +576,9 @@ const startWaveformPolling = () => {
     }
     
     // Try to load waveform from file
-    if (window.electronAPI && audioItem.waveformPath) {
+    if (window.electronAPI && audioItem.waveformPath && currentProject.value) {
       try {
-        const result = await window.electronAPI.readFile(audioItem.waveformPath);
+        const result = await window.electronAPI.readFile(resolveWaveformPath(currentProject.value.folderPath, audioItem.waveformPath));
         if (result.success && result.data) {
           const waveformData = JSON.parse(result.data);
           if (waveformData.peaks && waveformData.peaks.length > 0) {

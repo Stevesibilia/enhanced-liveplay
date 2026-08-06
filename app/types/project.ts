@@ -51,7 +51,7 @@ export interface AudioItem extends BaseItem {
   type: 'audio';
   mediaFileName: string;
   mediaPath: string; // Relative path from project folder (e.g., "media/audio.mp3")
-  waveformPath: string;
+  waveformPath: string; // Bare filename under <folderPath>/waveforms (e.g. "a1b2.json"); resolve via resolveWaveformPath()
   waveform?: WaveformData; // Optional: waveform data for visualization
   inPoint: number; // in seconds
   outPoint: number; // in seconds

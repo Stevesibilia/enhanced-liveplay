@@ -98,6 +98,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useProject } from '~/composables/useProject';
+import { resolveWaveformPath } from '~/utils/paths';
 
 const { t } = useLocalization();
 const { currentProject, addItem, triggerWaveformUpdate } = useProject();
@@ -243,7 +244,7 @@ const importDownloadedFile = async (fileName: string, filePath: string) => {
       type: 'audio',
       mediaFileName: fileName,
       mediaPath: `media/${fileName}`, // Relative path
-      waveformPath: `${currentProject.value.folderPath}/waveforms/${uuid}.json`,
+      waveformPath: `${uuid}.json`, // bare filename; resolved against folderPath at runtime
       waveform: undefined,
       outPoint: duration,
       duration
@@ -277,10 +278,11 @@ const generateWaveformAsync = async (audioItem: any) => {
   
   try {
     const mediaPath = `${currentProject.value.folderPath}/media/${audioItem.mediaFileName}`;
-    const result = await window.electronAPI.generateWaveform(mediaPath, audioItem.waveformPath);
-    
+    const waveformPath = resolveWaveformPath(currentProject.value.folderPath, audioItem.waveformPath);
+    const result = await window.electronAPI.generateWaveform(mediaPath, waveformPath);
+
     if (result.success) {
-      const waveformFile = await window.electronAPI.readFile(audioItem.waveformPath);
+      const waveformFile = await window.electronAPI.readFile(waveformPath);
       if (waveformFile.success && waveformFile.data) {
         audioItem.waveform = JSON.parse(waveformFile.data);
         console.log('Waveform loaded and applied to item');

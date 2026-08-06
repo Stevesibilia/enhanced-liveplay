@@ -23,6 +23,8 @@
           step="0.1"
           :value="volumeDB"
           @input="handleVolumeChange"
+          @dblclick="resetVolume"
+          :title="t('properties.volume') + ' — double-click to reset to 0 dB'"
           :style="{ '--volume-handle-color': volumeHandleColor }"
         />
       </div>
@@ -280,7 +282,7 @@
 
 <script setup lang="ts">
 import type { AudioItem } from '~/types/project';
-import { calculatePerceivedLoudness, calculateNormalizationGain } from '~/utils/audio';
+import { calculatePerceivedLoudness, calculateNormalizationGain, waveformDisplayScale } from '~/utils/audio';
 
 const props = defineProps<{
   audioItem: AudioItem;
@@ -545,6 +547,11 @@ const handleVolumeChange = (event: Event) => {
   volumeDB.value = parseFloat(target.value);
 };
 
+// Double-click the slider to snap back to unity gain (0 dB).
+const resetVolume = () => {
+  volumeDB.value = 0;
+};
+
 // Fade change handlers
 const handlePlayFadeChange = (event: Event) => {
   const target = event.target as HTMLInputElement;
@@ -766,6 +773,10 @@ const drawWaveform = () => {
     // Draw waveform bars from existing data (like in PlaylistItem)
     const peaks = waveformData.value;
     const totalPeaks = peaks.length;
+    // Peak-normalize display height so quiet cues aren't a flat line. Computed
+    // over the whole track (not just the visible slice) so zoom/scroll doesn't
+    // rescale the waveform. Colors below still use the true level.
+    const displayScale = waveformDisplayScale(peaks);
     
     // Calculate visible peak range
     const startPeak = Math.floor((visibleStart.value / duration.value) * totalPeaks);
@@ -802,18 +813,19 @@ const drawWaveform = () => {
       // Draw each bar with individual coloring
       visiblePeaksArray.forEach((value, i) => {
         const normalizedPeak = value; // Already normalized 0-1
-        
-        // Base waveform bar height (use 80% of canvas height like PlaylistItem)
-        const baseBarHeight = normalizedPeak * canvasHeight * 0.8;
+
+        // Base waveform bar height (use 80% of canvas height like PlaylistItem).
+        // displayScale lifts quiet tracks off the center line.
+        const baseBarHeight = Math.min(normalizedPeak * displayScale, 1) * canvasHeight * 0.8;
         const baseY = middleY - baseBarHeight / 2;
         const x = i * barWidth;
-        
+
         // Draw base waveform (subtle gray)
         ctx.fillStyle = 'rgba(128, 128, 128, 0.15)';
         ctx.fillRect(x, baseY, Math.max(barWidth, 1), baseBarHeight);
-        
-        // Calculate bar height after volume multiplication
-        const amplifiedPeak = Math.min(normalizedPeak * volumeMultiplier, 1); // Clamp to 1
+
+        // Calculate bar height after volume multiplication (display-scaled)
+        const amplifiedPeak = Math.min(normalizedPeak * volumeMultiplier * displayScale, 1); // Clamp to 1
         const amplifiedBarHeight = amplifiedPeak * canvasHeight * 0.8;
         const amplifiedY = middleY - amplifiedBarHeight / 2;
         
@@ -839,7 +851,7 @@ const drawWaveform = () => {
         // Convert perceived loudness (dB) back to linear for display height
         const rmsLinear = perceivedLoudness <= -60 ? 0 : Math.pow(10, perceivedLoudness / 20);
         const rmsAmplified = rmsLinear * volumeMultiplier;
-        const rmsHeight = rmsAmplified * canvasHeight * 0.8;
+        const rmsHeight = Math.min(rmsAmplified * displayScale, 1) * canvasHeight * 0.8;
         
         // Draw horizontal line at RMS level (on both sides of center)
         ctx.strokeStyle = 'rgba(255, 165, 0, 0.5)'; // Orange with transparency
