@@ -35,6 +35,62 @@
     document.addEventListener('click', () => {
       window.PlayerTransport.requestToggleFullscreen();
     });
+
+    // Keep-awake: tablets dim/sleep the display during a session. Prefer the
+    // Screen Wake Lock API (needs a secure context — HTTPS or localhost). On a
+    // plain-HTTP LAN it is unavailable, so fall back to a hidden muted looping
+    // video fed by a blank canvas stream (the "NoSleep" trick), which the OS
+    // treats as active playback and keeps the screen on.
+    (function keepAwake() {
+      let wakeLock = null;
+
+      async function requestWakeLock() {
+        if (!('wakeLock' in navigator)) return false;
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          // A released lock (tab hidden, OS reclaim) is re-acquired on the
+          // visibilitychange handler below.
+          wakeLock.addEventListener('release', () => { wakeLock = null; });
+          return true;
+        } catch (_) {
+          return false; // e.g. insecure context — fall through to video hack.
+        }
+      }
+
+      let fallbackVideo = null;
+      function startVideoFallback() {
+        if (fallbackVideo) { fallbackVideo.play().catch(() => {}); return; }
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 2;
+        // A running stream is enough; one draw keeps a frame available.
+        canvas.getContext('2d').fillRect(0, 0, 2, 2);
+        const stream = canvas.captureStream(1);
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.muted = true;
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+        video.loop = true;
+        video.style.cssText =
+          'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0;';
+        document.body.appendChild(video);
+        fallbackVideo = video;
+        video.play().catch(() => {});
+      }
+
+      async function acquire() {
+        const locked = await requestWakeLock();
+        if (!locked) startVideoFallback();
+      }
+
+      // Wake Lock + captureStream playback both require a user gesture on many
+      // mobile browsers; the tap-to-fullscreen handler doubles as the trigger.
+      document.addEventListener('click', acquire);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') acquire();
+      });
+      acquire(); // best effort on load; the tap handler covers gesture-gated cases.
+    })();
   </script>
   <script src="/player-renderer.js"></script>
 </body>
