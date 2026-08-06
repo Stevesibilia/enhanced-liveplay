@@ -10,6 +10,7 @@ import type {
 } from '~/types/project';
 import { DEFAULT_THEME, DEFAULT_CART_SLOT_KEYS } from '~/types/project';
 import { CURRENT_SCHEMA_VERSION, validateProjectStructure, runMigrations } from '~/utils/migrations';
+import { resolveWaveformPath } from '~/utils/paths';
 
 export const useProject = () => {
   const currentProject = useState<Project | null>('currentProject', () => null);
@@ -230,10 +231,10 @@ export const useProject = () => {
         }
         
         try {
-          const result = await window.electronAPI.readFile(audioItem.waveformPath);
+          const result = await window.electronAPI.readFile(resolveWaveformPath(project.folderPath, audioItem.waveformPath));
           if (result.success && result.data) {
             const waveformData = JSON.parse(result.data);
-            
+
             // Validate waveform format
             if (waveformData.peaks && waveformData.peaks.length && waveformData.duration) {
               audioItem.waveform = waveformData;
@@ -274,13 +275,14 @@ export const useProject = () => {
       }
 
       const mediaPath = `${project.folderPath}/media/${audioItem.mediaFileName}`;
-      
+      const outputPath = resolveWaveformPath(project.folderPath, audioItem.waveformPath);
+
       // Generate waveform using ffmpeg (non-blocking)
-      const result = await window.electronAPI.generateWaveform(mediaPath, audioItem.waveformPath);
-      
+      const result = await window.electronAPI.generateWaveform(mediaPath, outputPath);
+
       if (result.success) {
         // Load the generated waveform
-        const waveformFile = await window.electronAPI.readFile(audioItem.waveformPath);
+        const waveformFile = await window.electronAPI.readFile(outputPath);
         if (waveformFile.success && waveformFile.data) {
           audioItem.waveform = JSON.parse(waveformFile.data);
           console.log(`Regenerated waveform for ${audioItem.displayName}`);

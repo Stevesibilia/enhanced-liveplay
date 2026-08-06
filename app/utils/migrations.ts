@@ -1,4 +1,5 @@
 import { DEFAULT_CART_SLOT_KEYS, NEUTRAL_CUE_COLOR } from '~/types/project';
+import { waveformFileName } from '~/utils/paths';
 
 // --- Migration functions ---
 // Each migration takes a raw (any-typed) project object and mutates it in place.
@@ -102,6 +103,22 @@ function migrateV3ToV4(project: any): void {
   if (project.cartOnlyItems) for (const item of project.cartOnlyItems) recolor(item);
 }
 
+function migrateV4ToV5(project: any): void {
+  // waveformPath used to be persisted as an absolute path, which broke when a
+  // project was synced to a host with a different folder layout (the stored
+  // path pointed at the other machine's directory). Normalize it to a bare
+  // filename; it is resolved against the current folderPath at runtime.
+  const normalize = (item: any): void => {
+    if (item.type === 'audio' && typeof item.waveformPath === 'string' && item.waveformPath) {
+      item.waveformPath = waveformFileName(item.waveformPath);
+    } else if (item.type === 'group' && item.children) {
+      for (const child of item.children) normalize(child);
+    }
+  };
+  if (project.items) for (const item of project.items) normalize(item);
+  if (project.cartOnlyItems) for (const item of project.cartOnlyItems) normalize(item);
+}
+
 // --- Migration registry ---
 // Index N = migration from version N to N+1
 const migrations: Array<(project: any) => void> = [
@@ -109,6 +126,7 @@ const migrations: Array<(project: any) => void> = [
   migrateV1ToV2, // 1 → 2
   migrateV2ToV3, // 2 → 3
   migrateV3ToV4, // 3 → 4
+  migrateV4ToV5, // 4 → 5
 ];
 
 export const CURRENT_SCHEMA_VERSION = migrations.length;

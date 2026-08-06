@@ -117,6 +117,34 @@ describe('runMigrations', () => {
     expect(project.visualFolders).toEqual([]);
   });
 
+  it('normalizes absolute waveformPath to a bare filename (v4→v5)', () => {
+    const project: any = {
+      name: 'SyncedProject',
+      version: '1.0.0',
+      schemaVersion: 4,
+      items: [
+        { type: 'audio', uuid: 'a1', waveformPath: '/home/steve/Nextcloud_steve/Proj/waveforms/abc.json' },
+        {
+          type: 'group',
+          uuid: 'g1',
+          children: [
+            { type: 'audio', uuid: 'a2', waveformPath: 'C:\\Users\\x\\Proj\\waveforms\\def.json' },
+          ],
+        },
+      ],
+      cartOnlyItems: [
+        { type: 'audio', uuid: 'c1', waveformPath: 'ghi.json' }, // already bare — unchanged
+      ],
+    };
+
+    runMigrations(project);
+
+    expect(project.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(project.items[0].waveformPath).toBe('abc.json');
+    expect(project.items[1].children[0].waveformPath).toBe('def.json'); // Windows separators handled
+    expect(project.cartOnlyItems[0].waveformPath).toBe('ghi.json');
+  });
+
   it('does not overwrite existing visualMedia on migration', () => {
     const project: any = {
       name: 'V1WithVisuals',
