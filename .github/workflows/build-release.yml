@@ -6,6 +6,10 @@ on:
       - dev
     paths:
       - 'package.json'
+  # Manual fallback: lets a release be built when the push/paths trigger
+  # misses (e.g. a merge commit GitHub doesn't path-match). Builds whatever
+  # version is currently in package.json on the chosen ref.
+  workflow_dispatch:
 
 jobs:
   check-version:
@@ -37,7 +41,7 @@ jobs:
 
   build:
     needs: check-version
-    if: needs.check-version.outputs.version-changed == 'true'
+    if: needs.check-version.outputs.version-changed == 'true' || github.event_name == 'workflow_dispatch'
     timeout-minutes: 45
     strategy:
       fail-fast: false
